@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Zombie Nation</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- Title -->
+  <section id="screen-title" class="screen active">
+    <div class="title-wrap">
+      <div class="title-logo">
+        <div class="logo-top">ZOMBIE</div>
+        <div class="logo-bottom">NATION</div>
+        <div class="logo-sub">Survive. Upgrade. Take back Britain.</div>
+      </div>
+      <div class="menu">
+        <button class="btn big primary" data-go="map">Campaign</button>
+        <button class="btn big" data-go="shop">Upgrades</button>
+        <button class="btn big" data-go="armoury">Armoury</button>
+        <button class="btn big" data-go="help">How to Play</button>
+      </div>
+      <div class="title-foot">
+        <button class="btn small" id="btn-sound">Sound: On</button>
+        <button class="btn small danger" id="btn-reset">Reset Save</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Campaign map -->
+  <section id="screen-map" class="screen">
+    <header class="topbar">
+      <button class="btn icon" data-go="title">‹</button>
+      <div class="acct">
+        <div class="acct-line"><span id="map-level">Level 1</span><span id="map-progress">0 / 69 liberated</span></div>
+        <div class="bar"><div id="map-xpbar" class="bar-fill xp"></div></div>
+      </div>
+      <div class="coins"><span>💰</span><span id="map-coins">0</span></div>
+    </header>
+    <div id="map-scroll"><div id="map-holder"></div></div>
+    <div id="map-legend">
+      <span><i class="lg cleared"></i>Liberated</span>
+      <span><i class="lg available"></i>Attackable</span>
+      <span><i class="lg locked"></i>Overrun</span>
+    </div>
+    <div id="county-panel" class="panel hidden">
+      <div class="cp-head"><div id="cp-name">County</div><div id="cp-status" class="tag">Status</div></div>
+      <div id="cp-info" class="cp-info"></div>
+      <button class="btn big primary" id="cp-go">Defend</button>
+    </div>
+  </section>
+
+  <!-- Shop -->
+  <section id="screen-shop" class="screen">
+    <header class="topbar">
+      <button class="btn icon" data-go="back">‹</button>
+      <div class="screen-title">Permanent Upgrades</div>
+      <div class="coins"><span>💰</span><span id="shop-coins">0</span></div>
+    </header>
+    <div class="scroll-list" id="shop-list"></div>
+  </section>
+
+  <!-- Armoury -->
+  <section id="screen-armoury" class="screen">
+    <header class="topbar">
+      <button class="btn icon" data-go="back">‹</button>
+      <div class="screen-title">Armoury</div>
+      <div class="coins"><span id="arm-level">Lv 1</span></div>
+    </header>
+    <div class="scroll-list" id="armoury-list"></div>
+  </section>
+
+  <!-- Help -->
+  <section id="screen-help" class="screen">
+    <header class="topbar">
+      <button class="btn icon" data-go="title">‹</button>
+      <div class="screen-title">How to Play</div>
+      <div></div>
+    </header>
+    <div class="scroll-list help">
+      <h3>Moving</h3>
+      <p>Touch and drag anywhere to move. Your weapons fire automatically. (On a keyboard: WASD or arrow keys.)</p>
+      <h3>Missions</h3>
+      <p>Pick any county for your first mission. After that you can only attack counties that border one you have liberated. Each new county has one more wave than the last, and zombies grow tougher the further you push. Survive every wave, then slay the horde boss to liberate the county.</p>
+      <h3>Levelling up in a mission</h3>
+      <p>Zombies drop XP gems. Each level lets you pick a new weapon, a passive item, or an upgrade. You can carry 6 weapons and 6 passives. Elite zombies drop treasure chests.</p>
+      <h3>Evolutions</h3>
+      <p>Max out a weapon while holding its partner passive to evolve it. Max out the <b>Ice</b>, <b>Fire</b> and <b>Electric Swords</b> together to forge the legendary <b>Sword of Light</b>. See the Armoury for every recipe.</p>
+      <h3>Coins and account level</h3>
+      <p>Coins carry over between missions (even if you fall) and buy permanent stat upgrades. XP you collect also raises your account level, which unlocks new weapons and passives that can then turn up in missions.</p>
+    </div>
+  </section>
+
+  <!-- Game -->
+  <section id="screen-game" class="screen">
+    <canvas id="game-canvas"></canvas>
+    <div id="hud">
+      <div class="bar xpwide"><div id="hud-xp" class="bar-fill xp"></div><span id="hud-level">LV 1</span></div>
+      <div class="hud-row">
+        <div class="hud-wave"><div id="hud-wave">Wave 1/1</div><div class="bar thin"><div id="hud-wavebar" class="bar-fill wave"></div></div></div>
+        <div class="hud-stat">💀 <span id="hud-kills">0</span></div>
+        <div class="hud-stat">💰 <span id="hud-coins">0</span></div>
+        <button class="btn icon pause" id="btn-pause">II</button>
+      </div>
+      <div id="hud-items"></div>
+      <div id="hud-boss" class="hidden"><div class="boss-name">The Abomination</div><div class="bar boss"><div id="hud-bossbar" class="bar-fill boss"></div></div></div>
+    </div>
+    <div id="banner" class="banner"><div id="banner-title"></div><div id="banner-sub"></div></div>
+  </section>
+
+  <!-- Overlays -->
+  <div id="ov-levelup" class="overlay hidden">
+    <div class="ov-box">
+      <div class="ov-title">LEVEL UP!</div>
+      <div class="ov-sub">Choose an upgrade</div>
+      <div id="levelup-cards" class="cards"></div>
+    </div>
+  </div>
+
+  <div id="ov-chest" class="overlay hidden">
+    <div class="ov-box">
+      <div class="ov-title gold">TREASURE!</div>
+      <div id="chest-list" class="cards"></div>
+      <button class="btn big primary" id="chest-ok">Collect</button>
+    </div>
+  </div>
+
+  <div id="ov-pause" class="overlay hidden">
+    <div class="ov-box">
+      <div class="ov-title">PAUSED</div>
+      <div id="pause-items" class="pause-items"></div>
+      <button class="btn big primary" id="pause-resume">Resume</button>
+      <button class="btn big" id="pause-sound">Sound: On</button>
+      <button class="btn big danger" id="pause-quit">Abandon Mission</button>
+    </div>
+  </div>
+
+  <div id="ov-results" class="overlay hidden">
+    <div class="ov-box">
+      <div id="res-title" class="ov-title">VICTORY</div>
+      <div id="res-sub" class="ov-sub"></div>
+      <div id="res-body" class="res-body"></div>
+      <button class="btn big primary" id="res-ok">Back to Map</button>
+    </div>
+  </div>
+
+  <div id="ov-confirm" class="overlay hidden">
+    <div class="ov-box">
+      <div id="confirm-title" class="ov-title">Are you sure?</div>
+      <div id="confirm-text" class="ov-sub"></div>
+      <button class="btn big danger" id="confirm-yes">Yes</button>
+      <button class="btn big" id="confirm-no">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/map.js"></script>
+<script src="js/save.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/game.js"></script>
+<script src="js/weapons.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>

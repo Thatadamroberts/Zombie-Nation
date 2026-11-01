@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Zombie head with a red/blue stripe: foreground layer for the adaptive icon -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#8FBF72" android:pathData="M54,26 C69,26 78,37 78,52 C78,64 72,72 66,75 L66,82 L42,82 L42,75 C36,72 30,64 30,52 C30,37 39,26 54,26 Z"/>
+    <path android:fillColor="#6F9B5A" android:pathData="M34,44 C38,32 48,28 54,28 C46,32 42,38 40,46 Z"/>
+    <path android:fillColor="#1A1A1A" android:pathData="M38,48 L50,50 L50,58 C46,60 40,58 38,54 Z"/>
+    <path android:fillColor="#1A1A1A" android:pathData="M70,48 L58,50 L58,58 C62,60 68,58 70,54 Z"/>
+    <path android:fillColor="#FF2A2A" android:pathData="M44,52 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0"/>
+    <path android:fillColor="#FF2A2A" android:pathData="M64,52 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0"/>
+    <path android:fillColor="#1A1A1A" android:pathData="M44,68 L64,68 L62,74 L46,74 Z"/>
+    <path android:fillColor="#E6E2D6" android:pathData="M48,68 L51,68 L51,71 L48,71 Z M54,68 L57,68 L57,71 L54,71 Z"/>
+    <path android:fillColor="#C8102E" android:pathData="M30,84 L78,84 L78,88 L30,88 Z"/>
+    <path android:fillColor="#1F4E8C" android:pathData="M30,88 L78,88 L78,92 L30,92 Z"/>
+</vector>
