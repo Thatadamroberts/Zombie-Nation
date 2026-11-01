@@ -485,23 +485,35 @@ ZN.ENEMIES = {
 // ---------------------------------------------------------------------------
 // Permanent upgrades bought with coins
 // ---------------------------------------------------------------------------
+// Permanent upgrades. Cost for the next rank = cost * growth^rank (steep, so they stay a long-term goal).
 ZN.SHOP = [
-  { id: 'might',    name: 'Might',      icon: '💪', desc: '+5% damage',          max: 5, cost: 60 },
-  { id: 'maxHp',    name: 'Vitality',   icon: '❤️', desc: '+10% max HP',          max: 5, cost: 50 },
-  { id: 'armor',    name: 'Armour',     icon: '🛡️', desc: '+1 armour',            max: 3, cost: 80 },
-  { id: 'regen',    name: 'Recovery',   icon: '💚', desc: '+0.1 HP/s regen',      max: 5, cost: 50 },
-  { id: 'speed',    name: 'Swiftness',  icon: '👟', desc: '+5% move speed',       max: 3, cost: 50 },
-  { id: 'cooldown', name: 'Haste',      icon: '⌛', desc: '-3% cooldown',         max: 3, cost: 120 },
-  { id: 'area',     name: 'Reach',      icon: '⭕', desc: '+5% area',             max: 3, cost: 100 },
-  { id: 'duration', name: 'Endurance',  icon: '⏳', desc: '+10% duration',        max: 2, cost: 80 },
-  { id: 'amount',   name: 'Duplicator', icon: '➕', desc: '+1 projectile',        max: 1, cost: 600 },
-  { id: 'magnet',   name: 'Attraction', icon: '🧲', desc: '+25% pickup range',    max: 2, cost: 40 },
-  { id: 'luck',     name: 'Fortune',    icon: '🍀', desc: '+10% luck',            max: 3, cost: 70 },
-  { id: 'growth',   name: 'Growth',     icon: '📈', desc: '+5% XP gain',          max: 5, cost: 90 },
-  { id: 'greed',    name: 'Greed',      icon: '💰', desc: '+10% coins',           max: 5, cost: 60 },
-  { id: 'revival',  name: 'Second Wind',icon: '🪽', desc: 'Revive once per mission at 50% HP', max: 1, cost: 800 }
+  { id: 'might',    name: 'Might',      icon: '💪', desc: '+5% damage',          max: 10, cost: 150 },
+  { id: 'maxHp',    name: 'Vitality',   icon: '❤️', desc: '+10% max HP',          max: 10, cost: 120 },
+  { id: 'armor',    name: 'Armour',     icon: '🛡️', desc: '+1 armour',            max: 5, cost: 250 },
+  { id: 'regen',    name: 'Recovery',   icon: '💚', desc: '+0.1 HP/s regen',      max: 8, cost: 150 },
+  { id: 'speed',    name: 'Swiftness',  icon: '👟', desc: '+5% move speed',       max: 5, cost: 200 },
+  { id: 'cooldown', name: 'Haste',      icon: '⌛', desc: '-3% cooldown',         max: 5, cost: 400 },
+  { id: 'area',     name: 'Reach',      icon: '⭕', desc: '+5% area',             max: 5, cost: 300 },
+  { id: 'duration', name: 'Endurance',  icon: '⏳', desc: '+10% duration',        max: 5, cost: 250 },
+  { id: 'amount',   name: 'Duplicator', icon: '➕', desc: '+1 projectile',        max: 2, cost: 3000, growth: 3 },
+  { id: 'magnet',   name: 'Attraction', icon: '🧲', desc: '+25% pickup range',    max: 4, cost: 100 },
+  { id: 'luck',     name: 'Fortune',    icon: '🍀', desc: '+10% luck',            max: 5, cost: 250 },
+  { id: 'growth',   name: 'Growth',     icon: '📈', desc: '+5% XP gain',          max: 8, cost: 250 },
+  { id: 'greed',    name: 'Greed',      icon: '💰', desc: '+10% coins',           max: 8, cost: 200 },
+  { id: 'revival',  name: 'Second Wind',icon: '🪽', desc: 'Revive once per mission at 50% HP', max: 2, cost: 4000, growth: 3 },
+  { id: 'reroll',   name: 'Reroll',     icon: '🔄', desc: '+1 level-up reroll per mission', max: 5, cost: 400 },
+  { id: 'skip',     name: 'Skip',       icon: '⏭️', desc: '+1 level-up skip per mission (gain XP instead)', max: 3, cost: 300 },
+  { id: 'banish',   name: 'Banish',     icon: '🚫', desc: '+1 banish per mission: remove an item from the pool', max: 3, cost: 600 }
 ];
-ZN.shopCost = function (item, rank) { return Math.round(item.cost * (1 + rank * 0.75)); };
+ZN.shopCost = function (item, rank) { return Math.round(item.cost * Math.pow(item.growth || 1.6, rank) / 10) * 10; };
+
+// Weapon mastery (Armoury) and pet training: long-term gold sinks
+ZN.MASTERY_MAX = 5;
+ZN.masteryCost = function (rank) { return 400 * Math.pow(2, rank); };          // 400 .. 6,400
+ZN.masteryMult = function (rank) { return 1 + 0.06 * rank; };                  // +6% damage per rank
+ZN.PET_MAX = 5;
+ZN.petCost = function (lvl) { return 800 * Math.pow(2, lvl); };                // 800 .. 12,800
+ZN.petMult = function (lvl) { return 1 + 0.25 * lvl; };                        // +25% pet power per level
 
 // ---------------------------------------------------------------------------
 // Playable survivors (bought with coins)

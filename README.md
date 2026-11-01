@@ -50,7 +50,10 @@ A Vampire Survivors-style Android game set across a zombie-overrun United Kingdo
   | Lighthouse Lamp + Union Flag Cape | Beacon of Albion |
   | Cricket Ball + Pocket Watch | Fast Bowler |
   | Garden Gnome + Brolly | Gnome Army |
-- **Coins** (kept even if you die) buy permanent stat upgrades: Might, Vitality, Armour, Recovery, Haste, Reach, Greed, Second Wind and more.
+- **Coins** (kept even if you die) buy permanent upgrades, with steeply rising prices:
+  - **Shop**: 17 upgrades with up to 10 ranks each (Might, Vitality, Armour, Haste, Greed, Second Wind...), plus **Reroll / Skip / Banish** charges for the level-up screen.
+  - **Weapon Mastery** (Armoury): train each weapon up to 5 stars for +6% damage per star; mastered weapons start at level 2. Evolutions inherit their ingredients' mastery.
+  - **Pet Training** (Survivors): up to 5 levels per companion, +25% power each (damage, lifesteal).
 - **Survivor level** (account XP from every mission) unlocks new weapons and passives, which can then turn up in level-up choices.
 
 ## Controls

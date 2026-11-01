@@ -263,6 +263,22 @@
       body.appendChild(el('div', 'name', pet.name));
       body.appendChild(el('div', 'desc', have || buyable ? pet.desc : 'Unlock: ' + ac.name + ' (' + ac.desc + ')'));
       body.appendChild(el('div', 'pet-buff', '✚ ' + pet.buff));
+      if (have) {
+        var pl = (d.petLevels || {})[id] || 0;
+        var tr = el('div', 'train-row', '<span class="stars">' + stars(pl, ZN.PET_MAX) + '</span><span class="tr-info">Power +' + Math.round((ZN.petMult(pl) - 1) * 100) + '%</span>');
+        if (pl < ZN.PET_MAX) {
+          var tc = ZN.petCost(pl), tb = el('button', 'btn small train', 'Train 💰 ' + fmt(tc));
+          tb.disabled = d.coins < tc;
+          tb.onclick = function (ev) {
+            ev.stopPropagation();
+            if (d.coins < tc) return;
+            d.coins -= tc; d.petLevels = d.petLevels || {}; d.petLevels[id] = pl + 1; Save.save();
+            ZN.Audio.play('levelup'); toast(pet.icon + ' ' + pet.name + ' trained to level ' + (pl + 1) + '!'); renderSurvivors();
+          };
+          tr.appendChild(tb);
+        } else tr.appendChild(el('span', 'tr-max', 'MAX'));
+        body.appendChild(tr);
+      }
       row.appendChild(body);
       var b;
       if (buyable) { b = el('button', 'btn buy primary', '💰 ' + fmt(pet.cost)); b.disabled = d.coins < pet.cost; }
@@ -335,17 +351,34 @@
   function renderArmoury() {
     var list = $('armoury-list'), unlocked = Save.unlockedSet(), lvl = Save.data.accLevel;
     list.innerHTML = '';
-    $('arm-level').textContent = 'Lv ' + lvl;
+    $('arm-level').textContent = 'Lv ' + lvl + ' · 💰 ' + fmt(Save.data.coins);
     var nextLvl = null;
     for (var l in ZN.UNLOCKS) if (+l > lvl) { nextLvl = +l; break; }
     if (nextLvl) list.appendChild(el('div', 'item', '<div class="body"><div class="name">Next unlock at Survivor Level ' + nextLvl + '</div><div class="desc">' +
       ZN.UNLOCKS[nextLvl].map(name).join(', ') + '. Earn account XP by collecting gems and clearing waves.</div></div>'));
 
-    list.appendChild(el('div', 'section-h', 'Weapons'));
+    list.appendChild(el('div', 'section-h', 'Weapons · train mastery for permanent damage'));
     Object.keys(ZN.WEAPONS).forEach(function (id) {
       var d = ZN.WEAPONS[id];
       if (d.evolved) return;
-      list.appendChild(entry(d.icon, d.color, d.name, d.kind + ' · ' + d.levels[0], unlocked[id], id));
+      var row = entry(d.icon, d.color, d.name, d.kind + ' · ' + d.levels[0], unlocked[id], id);
+      if (unlocked[id]) {
+        var m = (Save.data.mastery || {})[id] || 0, body = row.querySelector('.body');
+        var tr = el('div', 'train-row', '<span class="stars">' + stars(m, ZN.MASTERY_MAX) + '</span><span class="tr-info">Mastery +' + Math.round((ZN.masteryMult(m) - 1) * 100) + '% dmg' +
+          (m >= ZN.MASTERY_MAX ? ', starts Lv 2' : '') + '</span>');
+        if (m < ZN.MASTERY_MAX) {
+          var mc = ZN.masteryCost(m), mb = el('button', 'btn small train', 'Train 💰 ' + fmt(mc));
+          mb.disabled = Save.data.coins < mc;
+          mb.onclick = function () {
+            if (Save.data.coins < mc) return;
+            Save.data.coins -= mc; Save.data.mastery = Save.data.mastery || {}; Save.data.mastery[id] = m + 1; Save.save();
+            ZN.Audio.play('levelup'); toast(d.icon + ' ' + d.name + ' mastery ' + (m + 1) + '!'); renderArmoury();
+          };
+          tr.appendChild(mb);
+        } else tr.appendChild(el('span', 'tr-max', 'MASTERED'));
+        body.appendChild(tr);
+      }
+      list.appendChild(row);
     });
     list.appendChild(el('div', 'section-h', 'Passive items'));
     Object.keys(ZN.PASSIVES).forEach(function (id) {
@@ -377,6 +410,8 @@
       return row;
     }
   }
+
+  function stars(n, max) { var s = ''; for (var i = 0; i < max; i++) s += i < n ? '★' : '☆'; return s; }
 
   function icon(ic, color) {
     var i = el('div', 'ico', ic);
@@ -479,18 +514,43 @@
   }
 
   function showLevelUp(options, choose) {
-    var box = $('levelup-cards');
-    box.innerHTML = '';
+    var box = $('levelup-cards'), tools = $('levelup-tools'), g = game, banishMode = false;
     var armed = false;
     setTimeout(function () { armed = true; }, 350); // avoid accidental taps while dragging
-    options.forEach(function (o) {
-      box.appendChild(card(o, function () {
-        if (!armed) return;
-        overlay('ov-levelup', false);
-        ZN.Audio.play('click');
-        choose(o);
-      }));
-    });
+    function close(o) { overlay('ov-levelup', false); ZN.Audio.play('click'); choose(o); }
+    function render() {
+      box.innerHTML = '';
+      $('levelup-sub').textContent = banishMode ? 'Tap an upgrade to banish it for this mission' : 'Choose an upgrade';
+      options.forEach(function (o) {
+        var c = card(o, function () {
+          if (!armed) return;
+          if (banishMode) {
+            if (o.kind === 'evolve' || !o.id || !g) return;
+            g.banished[o.id] = true; g.banishes--; banishMode = false;
+            toast('🚫 ' + o.title + ' banished');
+            options = g.rollOptions(); render(); return;
+          }
+          close(o);
+        });
+        if (banishMode && (o.kind === 'evolve' || !o.id)) c.style.opacity = 0.4;
+        box.appendChild(c);
+      });
+      tools.innerHTML = '';
+      if (!g) return;
+      if (g.rerolls > 0) tools.appendChild(toolBtn('🔄 Reroll', g.rerolls, function () { g.rerolls--; options = g.rollOptions(); render(); }));
+      if (g.skips > 0) tools.appendChild(toolBtn('⏭️ Skip', g.skips, function () { g.skips--; close({ kind: 'skip' }); }));
+      if (g.banishes > 0) {
+        var bb = toolBtn(banishMode ? '✖ Cancel' : '🚫 Banish', g.banishes, function () { banishMode = !banishMode; render(); });
+        if (banishMode) bb.classList.add('active');
+        tools.appendChild(bb);
+      }
+    }
+    function toolBtn(label, n, fn) {
+      var b = el('button', 'btn tool', label + ' <span>' + n + '</span>');
+      b.onclick = function () { if (!armed) return; ZN.Audio.play('click'); fn(); };
+      return b;
+    }
+    render();
     if (game) game.joy = null;
     overlay('ov-levelup', true);
   }

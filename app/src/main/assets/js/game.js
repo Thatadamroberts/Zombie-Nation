@@ -43,6 +43,10 @@
     this.buffs = {}; this.particles = []; this.buffCd = 8; this.dustT = 0;
     this.trait = opts.trait || ZN.traitFor(opts.county); this.traitT = 12; this.hazards = []; this.miniIdx = 0; this.midMini = false;
     this.petDef = opts.pet ? ZN.PETS[opts.pet] : null;
+    this.petMul = opts.pet ? ZN.petMult((ZN.Save.data.petLevels || {})[opts.pet] || 0) : 1;
+    // Level-up tools bought in the shop
+    var shp = ZN.Save.data.shop;
+    this.rerolls = shp.reroll || 0; this.skips = shp.skip || 0; this.banishes = shp.banish || 0; this.banished = {};
     this.computeStats();
     this.player.hp = this.stat.maxHp;
     this.revivals = this.stat.revival;
@@ -83,7 +87,18 @@
   // ------------------------------------------------------------ inventory
   G.findWeapon = function (id) { for (var i = 0; i < this.weapons.length; i++) if (this.weapons[i].id === id) return this.weapons[i]; return null; };
   G.findPassive = function (id) { for (var i = 0; i < this.passives.length; i++) if (this.passives[i].id === id) return this.passives[i]; return null; };
-  G.addWeapon = function (id) { var w = { id: id, level: 1, t: 0.3, s: {} }; this.weapons.push(w); return w; };
+  G.addWeapon = function (id) {
+    var d = ZN.WEAPONS[id], lvl = this.masteryRank(id) >= ZN.MASTERY_MAX && d.max > 1 ? 2 : 1;
+    var w = { id: id, level: lvl, t: 0.3, s: {} }; this.weapons.push(w); return w;
+  };
+  // Weapon mastery bought in the Armoury; evolved weapons use their best ingredient's rank
+  G.masteryRank = function (id) {
+    var m = ZN.Save.data.mastery || {};
+    if (!ZN.WEAPONS[id].evolved) return m[id] || 0;
+    var ev = ZN.EVOLUTIONS.filter(function (e) { return e.into === id; })[0];
+    return ev ? Math.max.apply(null, ev.from.map(function (f) { return m[f] || 0; })) : 0;
+  };
+  G.masteryMult = function (id) { return ZN.masteryMult(this.masteryRank(id)); };
   G.addPassive = function (id) { this.passives.push({ id: id, level: 1 }); this.computeStats(); };
 
   G.eligibleEvolutions = function () {
@@ -124,20 +139,20 @@
     });
     this.weapons.forEach(function (w) {
       var d = ZN.WEAPONS[w.id];
-      if (w.level < d.max) pool.push({ kind: 'upWeapon', id: w.id, icon: d.icon, color: d.color, title: d.name, tag: 'Level ' + (w.level + 1), desc: d.levels[w.level], wt: 10 });
+      if (w.level < d.max && !g.banished[w.id]) pool.push({ kind: 'upWeapon', id: w.id, icon: d.icon, color: d.color, title: d.name, tag: 'Level ' + (w.level + 1), desc: d.levels[w.level], wt: 10 });
     });
     if (this.weapons.length < ZN.MAX_WEAPON_SLOTS && !this.mods.pistolOnly) Object.keys(ZN.WEAPONS).forEach(function (id) {
       var d = ZN.WEAPONS[id];
-      if (d.evolved || !unlocked[id] || consumed[id] || g.findWeapon(id)) return;
+      if (d.evolved || !unlocked[id] || consumed[id] || g.findWeapon(id) || g.banished[id]) return;
       pool.push({ kind: 'newWeapon', id: id, icon: d.icon, color: d.color, title: d.name, tag: 'NEW · ' + d.kind, desc: d.levels[0], wt: 8 });
     });
     this.passives.forEach(function (p) {
       var d = ZN.PASSIVES[p.id];
-      if (p.level < ZN.PASSIVE_MAX) pool.push({ kind: 'upPassive', id: p.id, icon: d.icon, color: '#8fd18f', title: d.name, tag: 'Level ' + (p.level + 1), desc: d.desc, wt: 8 });
+      if (p.level < ZN.PASSIVE_MAX && !g.banished[p.id]) pool.push({ kind: 'upPassive', id: p.id, icon: d.icon, color: '#8fd18f', title: d.name, tag: 'Level ' + (p.level + 1), desc: d.desc, wt: 8 });
     });
     if (this.passives.length < ZN.MAX_PASSIVE_SLOTS) Object.keys(ZN.PASSIVES).forEach(function (id) {
       var d = ZN.PASSIVES[id];
-      if (!unlocked[id] || g.findPassive(id)) return;
+      if (!unlocked[id] || g.findPassive(id) || g.banished[id]) return;
       pool.push({ kind: 'newPassive', id: id, icon: d.icon, color: '#8fd18f', title: d.name, tag: 'NEW · Passive', desc: d.desc + evoHint(id), wt: 6 });
     });
     var n = Math.random() < 0.08 + (this.stat.luck - 1) * 0.6 ? 4 : 3;
@@ -166,6 +181,7 @@
     else if (o.kind === 'newPassive') this.addPassive(o.id);
     else if (o.kind === 'upPassive') { this.findPassive(o.id).level++; this.computeStats(); }
     else if (o.kind === 'gold') this.runCoins += 25;
+    else if (o.kind === 'skip') this.player.xp += this.player.xpNext * 0.25;
     else if (o.kind === 'heal') this.player.hp = Math.min(this.stat.maxHp, this.player.hp + this.stat.maxHp * 0.5);
   };
 
@@ -644,7 +660,11 @@
     if (!this.victory) {
       for (var i = 0; i < this.weapons.length; i++) {
         var w = this.weapons[i], logic = ZN.WEAPON_LOGIC[w.id];
-        if (logic) logic(this, w, ZN.WEAPONS[w.id].stats(w.level), dt);
+        if (logic) {
+          var wst = ZN.WEAPONS[w.id].stats(w.level), mm = this.masteryMult(w.id);
+          if (mm !== 1) { if (wst.dmg) wst.dmg *= mm; if (wst.burstDmg) wst.burstDmg *= mm; }
+          logic(this, w, wst, dt);
+        }
       }
     }
     ZN.runGameTimers(this);
@@ -759,7 +779,7 @@
           var base = Math.atan2(tgt.y - pet.y, tgt.x - pet.x);
           for (var i = 0; i < 9; i++) {
             var a = base + (Math.random() - 0.5) * 0.6, v = 250;
-            this.projectiles.push({ x: pet.x, y: pet.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: 8, dmg: 9, pierce: 5, life: 0.75, maxLife: 0.75,
+            this.projectiles.push({ x: pet.x, y: pet.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: 8, dmg: 9 * this.petMul, pierce: 5, life: 0.75, maxLife: 0.75,
               hit: {}, kind: 'flame', burn: 6, silent: true, grow: 34, drag: 0.5 });
           }
           ZN.Audio.play('boom', 200);
@@ -784,7 +804,7 @@
       }
       if (pet.biteT === undefined || pet.biteT <= 0) {
         pet.biteT = 0.6;
-        this.queryEnemies(pet.x, pet.y, 16, function (e) { g.damage(e, 12, { kb: 40, kx: e.x - pet.x, ky: e.y - pet.y, silent: true }); });
+        this.queryEnemies(pet.x, pet.y, 16, function (e) { g.damage(e, 12 * g.petMul, { kb: 40, kx: e.x - pet.x, ky: e.y - pet.y, silent: true }); });
       } else pet.biteT -= dt;
     } else if (pet.type === 'cow') {
       if (pet.mode === 'charge') {
@@ -793,7 +813,7 @@
         this.queryEnemies(pet.x, pet.y, 18, function (e) {
           if (pet.hit[e.id]) return;
           pet.hit[e.id] = 1;
-          g.damage(e, 32, { kb: 240, kx: pet.cx, ky: pet.cy, silent: true });
+          g.damage(e, 32 * g.petMul, { kb: 240, kx: pet.cx, ky: pet.cy, silent: true });
         });
         if (pet.chargeT <= 0) { pet.mode = 'follow'; pet.t = 3.8 * this.stat.cooldown; }
       } else if (pet.t <= 0) {
@@ -814,7 +834,7 @@
         var bx = pet.target.x - pet.x, by = pet.target.y - pet.y;
         if (bx * bx + by * by < (pet.target.r + 12) * (pet.target.r + 12) && (pet.biteT || 0) <= 0) {
           pet.biteT = 0.45;
-          this.damage(pet.target, 10, { silent: true, color: '#ff6b8a' });
+          this.damage(pet.target, 10 * this.petMul, { silent: true, color: '#ff6b8a' });
           this.lifesteal(pet.x, pet.y);
         }
       } else { tx = p.x + Math.cos(this.time * 3) * 40; ty = p.y - 26 + Math.sin(this.time * 6) * 8; }
@@ -823,7 +843,7 @@
       if (pet.mode === 'swoop' && pet.target && !pet.target.dead) {
         tx = pet.target.x; ty = pet.target.y; sp = 430;
         if (Math.abs(tx - pet.x) < 12 && Math.abs(ty - pet.y) < 12) {
-          this.queryEnemies(pet.x, pet.y, 34, function (e) { g.damage(e, 28, { kb: 80, kx: e.x - pet.x, ky: e.y - pet.y, silent: true }); });
+          this.queryEnemies(pet.x, pet.y, 34, function (e) { g.damage(e, 28 * g.petMul, { kb: 80, kx: e.x - pet.x, ky: e.y - pet.y, silent: true }); });
           this.effects.push({ kind: 'ring', x: pet.x, y: pet.y, r: 6, maxR: 36, t: 0, T: 0.25, color: '#e0c890' });
           pet.mode = 'follow'; pet.t = 2.6 * this.stat.cooldown;
         }
@@ -838,7 +858,7 @@
       if ((pet.biteT || 0) <= 0) {
         pet.biteT = 0.45;
         var hitAny = false;
-        this.queryEnemies(pet.x, pet.y, 20, function (e) { hitAny = true; g.damage(e, 9, { kb: 30, kx: e.x - pet.x, ky: e.y - pet.y, silent: true }); });
+        this.queryEnemies(pet.x, pet.y, 20, function (e) { hitAny = true; g.damage(e, 9 * g.petMul, { kb: 30, kx: e.x - pet.x, ky: e.y - pet.y, silent: true }); });
         if (hitAny) this.effects.push({ kind: 'scratch', x: pet.x + pet.dir * 10, y: pet.y - 4, t: 0, T: 0.2 });
       } else pet.biteT -= dt;
     } else if (pet.type === 'hedgehog') {
@@ -847,7 +867,7 @@
       this.queryEnemies(pet.x, pet.y, 13, function (e) {
         if ((e.hc.hog || 0) > g.time) return;
         e.hc.hog = g.time + 0.5;
-        g.damage(e, 14, { kb: 90, kx: e.x - pet.x, ky: e.y - pet.y, silent: true, color: '#c8a070' });
+        g.damage(e, 14 * g.petMul, { kb: 90, kx: e.x - pet.x, ky: e.y - pet.y, silent: true, color: '#c8a070' });
       });
     }
     var dx = tx - pet.x, dy = ty - pet.y, dl = Math.sqrt(dx * dx + dy * dy);
@@ -859,7 +879,7 @@
 
   // Vampire bat bites heal the player
   G.lifesteal = function (x, y) {
-    var p = this.player, h = this.stat.lifesteal;
+    var p = this.player, h = this.stat.lifesteal * this.petMul;
     if (!h || p.hp >= this.stat.maxHp) return;
     p.hp = Math.min(this.stat.maxHp, p.hp + h);
     if (this.texts.length < 70 && Math.random() < 0.5) this.texts.push({ x: p.x + rand(-8, 8), y: p.y - 26, t: 0, v: '+' + h.toFixed(1), color: '#7dff8a' });
