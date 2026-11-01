@@ -301,7 +301,7 @@
       ZN.Audio.play('wave');
     } else {
       this.bossPhase = true;
-      var bossScale = 1 + 0.12 * this.waves;
+      var bossScale = (this.waves === 1 ? 0.8 : 1) + 0.15 * this.waves;
       this.boss = this.spawnEnemy('boss', undefined, undefined, bossScale);
       this.banner('HORDE BOSS', 'Slay ' + ZN.ENEMIES.boss.name + ' to liberate ' + this.county.name);
       ZN.Audio.play('boss');
@@ -579,8 +579,9 @@
       e.specT = rand(4, 6);
       if (Math.random() < 0.6 && d < 420) { e.windT = 0.7; e.cdx = ux; e.cdy = uy; }
       else {
-        for (var i = 0; i < 8; i++) {
-          var a = i / 8 * TAU;
+        var n = 4 + Math.min(Math.floor(this.tier / 2), 8);
+        for (var i = 0; i < n; i++) {
+          var a = i / n * TAU;
           this.spawnEnemy(Math.random() < 0.5 ? 'runner' : 'shambler', e.x + Math.cos(a) * 60, e.y + Math.sin(a) * 60);
         }
         this.effects.push({ kind: 'ring', x: e.x, y: e.y, r: 10, maxR: 90, t: 0, T: 0.5, color: '#c45a4a' });

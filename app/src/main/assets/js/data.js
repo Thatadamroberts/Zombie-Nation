@@ -324,7 +324,7 @@ ZN.ENEMIES = {
   spitter:  { name: 'Spitter',  hp: 20, speed: 36, dmg: 6, r: 12, xp: 3, color: '#7a5a8a', skin: '#a37fb5', ranged: true },
   bloater:  { name: 'Bloater',  hp: 32, speed: 32, dmg: 8, r: 16, xp: 3, color: '#8a7a3a', skin: '#c2b35a', explodes: true },
   elite:    { name: 'Elite',    hp: 70, speed: 42, dmg: 20, r: 22, xp: 20, color: '#7a2f8a', skin: '#b55ac7', elite: true },
-  boss:     { name: 'The Abomination', hp: 450, speed: 46, dmg: 30, r: 38, xp: 60, color: '#8a2a2a', skin: '#c45a4a', boss: true }
+  boss:     { name: 'The Abomination', hp: 320, speed: 46, dmg: 30, r: 38, xp: 60, color: '#8a2a2a', skin: '#c45a4a', boss: true }
 };
 
 // ---------------------------------------------------------------------------
