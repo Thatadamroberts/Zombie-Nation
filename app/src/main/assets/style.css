@@ -180,3 +180,10 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .mod .mi { font-size: 26px; width: 36px; text-align: center; }
 .pet-row .btn.buy { min-width: 90px; }
 #ov-backup { background: rgba(5,6,8,0.97); }
+
+#hud-buffs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.buff-chip { position: relative; display: flex; align-items: center; gap: 4px; padding: 3px 8px 5px 6px; border-radius: 10px; background: rgba(15,18,22,0.8);
+  border: 2px solid; font-size: 12px; font-weight: 800; text-shadow: 1px 1px 0 #000; overflow: hidden; animation: chipin 0.25s ease-out; }
+.buff-chip .bt { position: absolute; left: 0; bottom: 0; height: 3px; }
+@keyframes chipin { from { transform: scale(1.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.pet-buff { font-size: 12px; font-weight: 800; color: #7dff8a; margin-top: 3px; }

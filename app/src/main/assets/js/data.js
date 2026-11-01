@@ -487,10 +487,33 @@ ZN.nationOf = function (c) {
 // ---------------------------------------------------------------------------
 // Companions (pets) unlocked by achievements
 // ---------------------------------------------------------------------------
+// Pets can never be hurt. Each grants a passive buff (apply) on top of its attacks.
 ZN.PETS = {
-  dragon: { name: 'Y Ddraig Goch', icon: '🐉', desc: 'The red dragon of Wales flies beside you, breathing fire on the horde.' },
-  corgi:  { name: 'Royal Corgi',   icon: '🐕', desc: 'Scampers about fetching XP gems and nipping at zombie ankles.' },
-  cow:    { name: 'Highland Coo',  icon: '🐂', desc: 'Every few seconds it charges through the horde, horns first.' }
+  dragon:   { name: 'Y Ddraig Goch', icon: '🐉', desc: 'The red dragon of Wales flies beside you, breathing fire on the horde.',
+    buff: '+10% damage', apply: function (s) { s.might += 0.1; } },
+  corgi:    { name: 'Royal Corgi', icon: '🐕', desc: 'Scampers about fetching XP gems and nipping at zombie ankles.',
+    buff: '+30% pickup range', apply: function (s) { s.magnet *= 1.3; } },
+  cow:      { name: 'Highland Coo', icon: '🐂', desc: 'Every few seconds it charges through the horde, horns first.',
+    buff: '+20% max HP', apply: function (s) { s.maxHp *= 1.2; } },
+  bat:      { name: 'Count Batula', icon: '🦇', cost: 600, desc: 'A vampire bat that darts between zombies, draining their blood.',
+    buff: 'Every bite heals you', apply: function (s) { s.lifesteal += 1.2; } },
+  owl:      { name: 'Wise Old Owl', icon: '🦉', cost: 500, desc: 'Swoops down on zombies from above with razor talons.',
+    buff: '+20% XP', apply: function (s) { s.growth += 0.2; } },
+  cat:      { name: 'Black Cat', icon: '🐈‍⬛', cost: 500, desc: 'Prowls at your heels, scratching anything that gets close.',
+    buff: '+30% luck, +6% crit', apply: function (s) { s.luck += 0.3; s.crit += 0.06; } },
+  hedgehog: { name: 'Spike the Hedgehog', icon: '🦔', cost: 700, desc: 'Curls into a spiky ball and rolls circles around you.',
+    buff: 'Thorns: zombies that touch you take damage, +2 armour', apply: function (s) { s.thorns += 18; s.armor += 2; } }
+};
+
+// ---------------------------------------------------------------------------
+// Temporary power-up drops
+// ---------------------------------------------------------------------------
+ZN.BUFFS = {
+  doubleWeapons: { name: 'Double Weapons', icon: '⚔️', color: '#ff5a5a', time: 10, desc: 'Weapons fire twice as fast' },
+  doubleSpeed:   { name: 'Double Speed',   icon: '⚡', color: '#5ad1ff', time: 10, desc: 'Move twice as fast' },
+  invincible:    { name: 'Invincible',     icon: '⭐', color: '#ffd23a', time: 8,  desc: 'Immune to damage; trample zombies' },
+  doubleXp:      { name: 'Double XP',      icon: '💎', color: '#b07aff', time: 15, desc: 'XP gems are worth double' },
+  freeze:        { name: 'Deep Freeze',    icon: '❄️', color: '#bfe9ff', time: 5,  desc: 'Every zombie is frozen solid' }
 };
 
 // ---------------------------------------------------------------------------

@@ -248,18 +248,27 @@
     var nb = el('button', 'btn buy', !d.pet ? 'Chosen' : 'Select');
     nb.onclick = function () { d.pet = null; Save.save(); renderSurvivors(); };
     none.appendChild(nb); list.appendChild(none);
+    list.appendChild(el('div', 'desc', '<span style="color:var(--muted);font-size:13px;padding:0 4px">Companions can never be hurt, and each one gives you a bonus.</span>'));
     Object.keys(ZN.PETS).forEach(function (id) {
       var pet = ZN.PETS[id], have = !!d.pets[id], sel = d.pet === id;
       var ac = ZN.ACHIEVEMENTS.filter(function (a) { return a.reward.pet === id; })[0];
-      var row = el('div', 'item pet-row' + (sel ? ' selected-surv' : '') + (have ? '' : ' locked'));
-      row.appendChild(icon(have ? pet.icon : '🔒', sel ? '#e0b030' : '#3a414c'));
+      var buyable = !have && pet.cost;
+      var row = el('div', 'item pet-row' + (sel ? ' selected-surv' : '') + (have || buyable ? '' : ' locked'));
+      row.appendChild(icon(have || buyable ? pet.icon : '🔒', sel ? '#e0b030' : '#3a414c'));
       var body = el('div', 'body');
       body.appendChild(el('div', 'name', pet.name));
-      body.appendChild(el('div', 'desc', have ? pet.desc : 'Unlock: ' + ac.name + ' (' + ac.desc + ')'));
+      body.appendChild(el('div', 'desc', have || buyable ? pet.desc : 'Unlock: ' + ac.name + ' (' + ac.desc + ')'));
+      body.appendChild(el('div', 'pet-buff', '✚ ' + pet.buff));
       row.appendChild(body);
-      var b = el('button', 'btn buy', sel ? 'Chosen' : have ? 'Select' : '🔒');
-      b.disabled = !have;
-      b.onclick = function () { if (!have) return; d.pet = id; Save.save(); ZN.Audio.play('click'); renderSurvivors(); };
+      var b;
+      if (buyable) { b = el('button', 'btn buy primary', '💰 ' + fmt(pet.cost)); b.disabled = d.coins < pet.cost; }
+      else { b = el('button', 'btn buy', sel ? 'Chosen' : have ? 'Select' : '🔒'); b.disabled = !have; }
+      b.onclick = function () {
+        if (buyable) { if (d.coins < pet.cost) return; d.coins -= pet.cost; d.pets[id] = true; ZN.Audio.play('coin'); }
+        else if (!have) return;
+        else ZN.Audio.play('click');
+        d.pet = id; Save.save(); renderSurvivors();
+      };
       row.appendChild(b); list.appendChild(row);
     });
   }
@@ -364,10 +373,11 @@
     else Save.data.lastCounty = id;
     show('game');
     $('hud-boss').classList.add('hidden');
+    updateBuffs.sig = null; $('hud-buffs').innerHTML = '';
     game = new ZN.Game($('game-canvas'), {
       county: c, waves: waves, tier: tier, replay: cleared, defend: defend, character: Save.data.character,
       pet: Save.data.pet, daily: !!daily, mods: daily ? daily.mods : [],
-      onHud: updateHud, onBanner: showBanner,
+      onHud: updateHud, onBanner: showBanner, onBuff: function (g) { updateBuffs.sig = null; updateBuffs(g); },
       onLevelUp: showLevelUp, onChest: showChest, onEnd: endMission
     });
     ZN.game = game;
@@ -376,8 +386,26 @@
     ZN.Music.play('battle');
   }
 
+  function updateBuffs(g) {
+    var box = $('hud-buffs'), active = Object.keys(g.buffs).filter(function (k) { return g.buffs[k] > 0; });
+    var sig = active.join();
+    if (sig !== updateBuffs.sig) {
+      updateBuffs.sig = sig; box.innerHTML = '';
+      active.forEach(function (k) {
+        var b = ZN.BUFFS[k], c = el('div', 'buff-chip', b.icon + ' ' + b.name + '<div class="bt" id="bt-' + k + '"></div>');
+        c.style.borderColor = b.color; c.style.color = b.color;
+        box.appendChild(c);
+      });
+    }
+    active.forEach(function (k) {
+      var bar = $('bt-' + k);
+      if (bar) { bar.style.width = Math.max(0, g.buffs[k] / ZN.BUFFS[k].time * 100) + '%'; bar.style.background = ZN.BUFFS[k].color; }
+    });
+  }
+
   function updateHud(g) {
     var p = g.player;
+    updateBuffs(g);
     $('hud-xp').style.width = Math.min(100, p.xp / p.xpNext * 100) + '%';
     $('hud-level').textContent = 'LV ' + p.level;
     $('hud-wave').textContent = g.bossPhase ? 'BOSS FIGHT · ' + g.county.short : 'Wave ' + (g.waveIdx + 1) + '/' + g.waves + ' · ' + Math.max(0, Math.ceil(g.waveDur - g.waveTime)) + 's';

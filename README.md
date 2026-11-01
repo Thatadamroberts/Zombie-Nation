@@ -13,7 +13,9 @@ A Vampire Survivors-style Android game set across a zombie-overrun United Kingdo
 - **Survivors** (bought with coins), each with a starting weapon and perks: Tommy (pistol), Bert the Beefeater (halberd), Rhiannon the Welsh Shepherd (molotov), Big Rab the Glaswegian Bouncer (cheese aura), Jory the Cornish Fisherman (harpoon), Morag the Highland Piper (bagpipes).
 - **Counter-attacks**: after a mission, the horde may attack a liberated county on the frontier. Win a mission there within 3 missions or it falls back to the zombies.
 - **Achievements**: 17 achievements that pay coins or unlock exclusive content: a Welsh dragon companion (all of Wales), a Highland coo (all of Scotland), a Royal Corgi (London and the South East), a new survivor Nana Doris (10,000 kills) and the Golden Brolly item (a no-damage win).
-- **Companions**: the dragon breathes fire, the corgi fetches XP gems and nips ankles, and the Highland coo charges through the horde.
+- **Companions** can never be hurt, and each grants a passive buff: the dragon breathes fire (+10% damage), the corgi fetches XP gems (+30% pickup range), the Highland coo charges the horde (+20% HP). Buy more with coins: Count Batula the vampire bat (every bite heals you), the Wise Old Owl (swoops, +20% XP), the Black Cat (scratches, +luck and crit) and Spike the Hedgehog (rolls around you, thorns).
+- **Power-up drops**: Double Weapons, Double Speed, Invincible (trample zombies), Double XP and Deep Freeze, shown with timers on the HUD. Elites always drop one.
+- **Animations**: zombies rise from the ground, lurch, squash when hit, lunge to attack and topple over with gore when killed; your survivor breathes, leans, kicks up dust, flashes when hurt, sparkles on level-up and falls when defeated.
 - **Daily challenge**: a new county every day with two twists (fog, sprinters, glass cannon, pistol only, giants...). Win it for 300 coins once a day.
 - **Pixel-art sprites** for every survivor, zombie and companion, with walk cycles, plus **chiptune music** (menu, battle and boss tracks) generated live with WebAudio.
 - **Minimap and off-screen markers** for the boss, elites and treasure chests.

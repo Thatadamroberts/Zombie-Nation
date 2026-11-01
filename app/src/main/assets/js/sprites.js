@@ -162,7 +162,35 @@
        '.kRRRRRRRRRRkkk.', '..kRRRRRRRRk....', '...kRRkRRRRk....', '....kk.kRRk.....', '........kRk.....', '.........kk.....']
     ]
   };
+  PETS.bat = [
+    ['................', 'kk....k..k....kk', 'kWk...kkkk...kWk', 'kWWk.kBBBBk.kWWk', 'kWWWkBeBBeBkWWWk', 'kWWWWkBBBBkWWWWk',
+     '.kWWWkBwwBkWWWk.', '..kWk.kBBk.kWk..', '...k...kk...k...', '................', '................', '................'],
+    ['................', '................', '......k..k......', '......kkkk......', '.....kBBBBk.....', '..kkkBeBBeBkkk..',
+     '.kWWWkBBBBkWWWk.', 'kWWWWkBwwBkWWWWk', 'kWWWk.kBBk.kWWWk', 'kWWk...kk...kWWk', 'kWk..........kWk', 'kk............kk']
+  ];
+  PETS.owl = [
+    ['....k......k....', '....kk....kk....', '....kOkkkkOk....', '...kOOOOOOOOk...', '...kOyyOOyyOk...', '...kOykOOkyOk...',
+     'kk.kOOOnnOOOk.kk', 'kOkkOLLLLLLOkkOk', '.kOOOLLLLLLOOOk.', '..kkOLLLLLLOkk..', '....kOOOOOOk....', '.....kn..nk.....'],
+    ['....k......k....', '....kk....kk....', '....kOkkkkOk....', '...kOOOOOOOOk...', '...kOyyOOyyOk...', '...kOykOOkyOk...',
+     '...kOOOnnOOOk...', '..kOOLLLLLLOOk..', '.kOkOLLLLLLOkOk.', '.kk.kLLLLLLk.kk.', '....kOOOOOOk....', '.....kn..nk.....']
+  ];
+  PETS.cat = [
+    ['...........k..k.', '...........kkkk.', '..........kCCCCk', '.k........kCgCgk', 'kCk.......kCCCCk', 'kCk.kkkkkkkCpCk.',
+     '.kCkCCCCCCCCkk..', '..kCCCCCCCCCk...', '...kCCCCCCCCk...', '...kCk...kCk....', '...kCk...kCk....', '...kk....kk.....'],
+    ['...........k..k.', '...........kkkk.', '..........kCCCCk', 'k.........kCgCgk', 'kCk.......kCCCCk', '.kCk.kkkkkkCpCk.',
+     '..kCkCCCCCCCkk..', '..kCCCCCCCCCk...', '...kCCCCCCCCk...', '...kkCk.kCkk....', '....kCk.kCk.....', '....kk..kk......']
+  ];
+  PETS.hedgehog = [
+    ['................', '................', '....k.k.k.k.....', '...kSkSkSkSk....', '..kSSSSSSSSSk...', '.kSSSSSSSSSSSkk.',
+     '.kSSSSSSSSSSFFek', 'kSSSSSSSSSSSFFFn', 'kSSSSSSSSSSSFFk.', '.kkFkkkkkkkFkk..', '..kFk.....kFk...', '..kk......kk....'],
+    ['................', '................', '....k.k.k.k.....', '...kSkSkSkSk....', '..kSSSSSSSSSk...', '.kSSSSSSSSSSSkk.',
+     '.kSSSSSSSSSSFFek', 'kSSSSSSSSSSSFFFn', 'kSSSSSSSSSSSFFk.', '.kkkFkkkkFkkkk..', '...kFk...kFk....', '...kk....kk.....']
+  ];
   var PET_PAL = {
+    bat: { k: '#120a14', W: '#4a2a5a', B: '#5a4a6a', e: '#ff2a2a', w: '#ffffff' },
+    owl: { k: '#2a1a0a', O: '#8a6a4a', L: '#e0d0b0', y: '#ffd23a', n: '#e0a030' },
+    cat: { k: '#000000', C: '#2e2e38', g: '#7dff4a', p: '#ff8aa0' },
+    hedgehog: { k: '#2a1a0a', S: '#6a4a2a', F: '#d8b080', e: '#000000', n: '#000000' },
     corgi: { k: '#2a1a10', O: '#d88a3a', w: '#f4efe6', e: '#111111' },
     cow: { k: '#3a1e0e', O: '#c2662e', d: '#5a2e14', w: '#f0e6c8' },
     dragon: { k: '#3a0a0a', R: '#c8102e', e: '#ffd23a', y: '#ffb02e' }
@@ -189,7 +217,7 @@
       for (var i = 0; i < w; i++) {
         var ch = row.charAt(i);
         if (!ch || ch === '.') continue;
-        var col = flash ? (ch === 'k' ? '#ffffff' : '#ffffff') : pal[ch];
+        var col = flash ? (typeof flash === 'string' ? (ch === 'k' ? '#000' : flash) : '#ffffff') : pal[ch];
         if (!col) continue;
         x.fillStyle = col; x.fillRect(i, y, 1, 1);
       }
@@ -213,13 +241,19 @@
     return out;
   }
 
-  function draw(ctx, img, x, y, h, flip) {
+  // Draws with feet at (x, y). o: { rot, sx, sy, rise (0..1 visible fraction from the top) }
+  function draw(ctx, img, x, y, h, flip, o) {
     var w = h * img.width / img.height;
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     ctx.translate(x, y);
+    if (o && o.rot) ctx.rotate(o.rot);
+    if (o && (o.sx || o.sy)) ctx.scale(o.sx || 1, o.sy || 1);
     if (flip) ctx.scale(-1, 1);
-    ctx.drawImage(img, -w / 2, -h, w, h);
+    if (o && o.rise !== undefined && o.rise < 1) {
+      ctx.beginPath(); ctx.rect(-w, -h * 1.2, w * 2, h * 1.2); ctx.clip();
+      ctx.drawImage(img, -w / 2, -h + h * (1 - o.rise), w, h);
+    } else ctx.drawImage(img, -w / 2, -h, w, h);
     ctx.restore();
   }
 
@@ -233,28 +267,49 @@
       var img = bake(key, rows, enemyPalette(e.def));
       var flip = Math.cos(e.dir || 0) < 0, H = e.r * 2.9, fy = e.y + e.r * 0.95;
       var bob = Math.abs(Math.sin(e.anim)) * e.r * 0.06;
-      draw(ctx, img, e.x, fy - bob, H, flip);
+      var o = { rot: Math.sin(e.anim * 0.5) * (e.type === 'crawler' ? 0.04 : 0.09), sx: 1, sy: 1 };
+      if (e.flash > 0) { o.sx = 1.14; o.sy = 0.88; }
+      var ex = e.x, ey = fy - bob;
+      if (e.lungeT > 0) { var lp = Math.sin(e.lungeT / 0.22 * Math.PI) * e.r * 0.5, ld = e.dir || 0; ex += Math.cos(ld) * lp; ey += Math.sin(ld) * lp * 0.5; o.rot += (flip ? -1 : 1) * 0.2; }
+      if (e.spawnT > 0) { o.rise = 1 - e.spawnT / 0.45; o.rot = Math.sin(time * 30) * 0.05; }
+      draw(ctx, img, ex, ey, H, flip, o);
       if (e.flash > 0) {
-        ctx.globalAlpha = 0.75; draw(ctx, bake(key + '|f', rows, null, true), e.x, fy - bob, H, flip); ctx.globalAlpha = 1;
+        ctx.globalAlpha = 0.75; draw(ctx, bake(key + '|f', rows, null, true), ex, ey, H, flip, o); ctx.globalAlpha = 1;
       }
     },
-    player: function (ctx, ch, p, x, y, time) {
-      var frame = p.moving ? (Math.floor(p.walk / 2.2) % 2) : 1;
+    // Falling-over death animation
+    corpse: function (ctx, e, t, T, side) {
+      var sh = SHAPE[e.type], key = e.type + '|' + e.def.color + '|0';
+      var img = bake(key, BODIES[sh[0]].concat(LEGS[sh[1]][0]), enemyPalette(e.def));
+      var fall = Math.min(1, t / 0.25), H = e.r * 2.9;
+      ctx.globalAlpha = Math.max(0, 1 - Math.max(0, t - 0.3) / (T - 0.3));
+      draw(ctx, img, e.x, e.y + e.r * 0.95, H, side < 0, { rot: -side * fall * Math.PI / 2 * 0.95, sx: 1, sy: 1 - fall * 0.1 });
+      ctx.globalAlpha = 1;
+    },
+    // o: { rot, sx, sy, tint }
+    player: function (ctx, ch, p, x, y, time, o) {
+      var frame = p.moving ? (((Math.floor(p.walk / 2.2) % 2) + 2) % 2) : 1;
       var key = 'player|' + ch.id + '|' + frame;
-      var img = cache[key];
-      if (!img) {
-        var rows = overlay(BODIES.player.concat(LEGS.player[frame]), HATS[ch.hat] || HATS.flat);
-        img = bake(key, rows, { k: '#141414', S: '#f1c9a0', e: '#1a1a1a', C: ch.coat, r: ch.id === 'beefeater' ? '#ffd23a' : '#c8102e',
-          P: '#2b2f3a', H: ch.hatColor, w: '#ffffff' });
-      }
-      draw(ctx, img, x, y + 13, 42, p.fx < -0.05);
+      var rows = overlay(BODIES.player.concat(LEGS.player[frame]), HATS[ch.hat] || HATS.flat);
+      var img = bake(key, rows, { k: '#141414', S: '#f1c9a0', e: '#1a1a1a', C: ch.coat, r: ch.id === 'beefeater' ? '#ffd23a' : '#c8102e',
+        P: '#2b2f3a', H: ch.hatColor, w: '#ffffff' });
+      o = o || {};
+      if (!p.moving) o.sy = (o.sy || 1) * (1 + Math.sin(time * 3) * 0.03);
+      var bob = p.moving ? Math.abs(Math.sin(p.walk * 0.7)) * 2 : 0;
+      draw(ctx, img, x, y + 13 - bob, 42, p.fx < -0.05, o);
+      if (o.tint) { ctx.globalAlpha = o.tintA || 0.6; draw(ctx, bake(key + '|' + o.tint, rows, null, o.tint), x, y + 13 - bob, 42, p.fx < -0.05, o); ctx.globalAlpha = 1; }
     },
     pet: function (ctx, pet) {
-      var frame = pet.moving || pet.type === 'dragon' ? (Math.floor(pet.anim / (pet.type === 'dragon' ? 2.5 : 1.5)) % 2) : 0;
+      var flyer = pet.type === 'dragon' || pet.type === 'bat' || pet.type === 'owl';
+      var rate = pet.type === 'bat' ? 0.9 : pet.type === 'dragon' ? 2.5 : pet.type === 'owl' ? 2 : 1.5;
+      var frame = pet.moving || flyer ? (((Math.floor(pet.anim / rate) % 2) + 2) % 2) : 0;
       var key = 'pet|' + pet.type + '|' + frame;
       var img = bake(key, PETS[pet.type][frame], PET_PAL[pet.type]);
-      var h = pet.type === 'cow' ? 30 : pet.type === 'dragon' ? 30 : 22;
-      draw(ctx, img, pet.x, pet.y + h * 0.45, h, pet.dir < 0);
+      var h = { cow: 30, dragon: 30, bat: 20, owl: 24, cat: 20, hedgehog: 18 }[pet.type] || 22;
+      var o = null;
+      if (pet.type === 'hedgehog') o = { rot: (pet.ang || 0) * 3, sx: 1, sy: 1 };
+      if (pet.type === 'cat' && !pet.moving) o = { sy: 1 + Math.sin(pet.anim * 0.4) * 0.04 };
+      draw(ctx, img, pet.x, pet.y + h * (o && o.rot !== undefined ? 0.5 : 0.45), h, pet.dir < 0 && pet.type !== 'bat' && pet.type !== 'owl', o);
     },
     // for preview/testing
     _grids: { BODIES: BODIES, LEGS: LEGS, HATS: HATS, PETS: PETS }
@@ -262,7 +317,8 @@
 
   ZN.drawPet = function (g, ctx, pet) {
     ctx.fillStyle = 'rgba(0,0,0,0.25)';
-    var sy = pet.type === 'dragon' ? pet.y + 30 : pet.y + 12;
+    var flyer = pet.type === 'dragon' || pet.type === 'bat' || pet.type === 'owl';
+    var sy = flyer ? pet.y + 30 : pet.y + 12;
     ctx.beginPath(); ctx.ellipse(pet.x, sy, pet.type === 'cow' ? 14 : 10, 4, 0, 0, Math.PI * 2); ctx.fill();
     ZN.Sprites.pet(ctx, pet);
     if (pet.mode === 'charge') {
