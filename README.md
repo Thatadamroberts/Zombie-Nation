@@ -12,7 +12,7 @@ A Vampire Survivors-style Android game set across a zombie-overrun United Kingdo
 - **Landmarks** in the battlefield: Big Ben, Stonehenge, a Cornish lighthouse, the Angel of the North, the Giant's Causeway, a Highland loch, castles, windmills, pubs, pitheads and the white cliffs.
 - **Survivors** (bought with coins), each with a starting weapon and perks: Tommy (pistol), Bert the Beefeater (halberd), Rhiannon the Welsh Shepherd (molotov), Big Rab the Glaswegian Bouncer (cheese aura), Jory the Cornish Fisherman (harpoon), Morag the Highland Piper (bagpipes).
 - **Counter-attacks**: after a mission, the horde may attack a liberated county on the frontier. Win a mission there within 3 missions or it falls back to the zombies.
-- **Achievements**: 17 achievements that pay coins or unlock exclusive content: a Welsh dragon companion (all of Wales), a Highland coo (all of Scotland), a Royal Corgi (London and the South East), a new survivor Nana Doris (10,000 kills) and the Golden Brolly item (a no-damage win).
+- **Achievements**: 19 achievements, most with up to five tiers (🥉🥈🥇💎👑), e.g. Zombie Slayer at 1k / 10k / 25k / 50k / 100k kills. They pay coins or unlock exclusive content: a Welsh dragon companion (all of Wales), a Highland coo (all of Scotland), a Royal Corgi (London and the South East), a new survivor Nana Doris (10,000 kills) and the Golden Brolly item (a no-damage win).
 - **Companions** can never be hurt, and each grants a passive buff: the dragon breathes fire (+10% damage), the corgi fetches XP gems (+30% pickup range), the Highland coo charges the horde (+20% HP). Buy more with coins: Count Batula the vampire bat (every bite heals you), the Wise Old Owl (swoops, +20% XP), the Black Cat (scratches, +luck and crit) and Spike the Hedgehog (rolls around you, thorns).
 - **Power-up drops**: Double Weapons, Double Speed, Invincible (trample zombies), Double XP and Deep Freeze, shown with timers on the HUD. Elites always drop one.
 - **Animations**: zombies rise from the ground, lurch, squash when hit, lunge to attack and topple over with gore when killed; your survivor breathes, leans, kicks up dust, flashes when hurt, sparkles on level-up and falls when defeated.
@@ -69,6 +69,15 @@ app/src/main/assets/            the game (HTML5 canvas, plain JS, no build step)
   js/save.js     save data (SharedPreferences on Android, localStorage in a browser)
 app/src/main/java/.../MainActivity.java   full-screen WebView host with no dependencies
 ```
+
+## Installing updates over the top
+
+Android only installs a new version over an old one when both are signed with the same key. CI signs every build with a permanent key stored in two repository secrets (Settings → Secrets and variables → Actions):
+
+- `ZN_KEYSTORE_BASE64`: the keystore file, base64-encoded
+- `ZN_KEYSTORE_PASSWORD`: its password (also used for the key, alias `zombienation`)
+
+Each build also gets a higher version number (the workflow run number), and pushes are published on the repo's **Releases** page as `ZombieNation-1.N.apk`. Without the secrets, builds fall back to a throwaway debug key and cannot update an existing install.
 
 ## Building the APK
 

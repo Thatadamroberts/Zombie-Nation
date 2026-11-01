@@ -616,47 +616,64 @@ ZN.BUFFS = {
 function nationDone(save, nation) {
   return ZN.COUNTIES.every(function (c) { return ZN.nationOf(c) !== nation || save.cleared[c.id]; });
 }
+// Tiered achievements. value(x) returns current progress; each tier is [goal, reward].
+// Rewards: { coins } | { character } | { pet } | { item }. desc uses {n} for the goal.
+function nationValue(save, nation) { return nationDone(save, nation) ? 1 : 0; }
+function countKeys(o) { return Object.keys(o || {}).length; }
 ZN.ACHIEVEMENTS = [
-  { id: 'first',     icon: '🏁', name: 'First Foothold',      desc: 'Liberate your first county.', reward: { coins: 50 },
-    check: function (x) { return Object.keys(x.save.cleared).length >= 1; } },
-  { id: 'ten',       icon: '🗺️', name: 'Pushing Back',        desc: 'Hold 10 liberated counties at once.', reward: { coins: 200 },
-    check: function (x) { return Object.keys(x.save.cleared).length >= 10; } },
-  { id: 'kills1k',   icon: '💀', name: 'Zombie Hunter',       desc: 'Slay 1,000 zombies.', reward: { coins: 100 },
-    check: function (x) { return x.stats.kills >= 1000; } },
-  { id: 'evolve',    icon: '🧬', name: 'Evolution',           desc: 'Evolve any weapon.', reward: { coins: 100 },
-    check: function (x) { return Object.keys(x.stats.evolved).length >= 1; } },
-  { id: 'daily',     icon: '📅', name: 'Daily Grind',         desc: 'Complete a daily challenge.', reward: { coins: 150 },
-    check: function (x) { return x.stats.dailies >= 1; } },
-  { id: 'southeast', icon: '👑', name: 'God Save the South',  desc: 'Liberate Greater London and all of the South East.', reward: { pet: 'corgi' },
-    check: function (x) { return ZN.COUNTIES.every(function (c) { return (c.region !== 'se' && c.id !== 'london') || x.save.cleared[c.id]; }); } },
-  { id: 'wales',     icon: '\uD83C\uDFF4\uDB40\uDC67\uDB40\uDC62\uDB40\uDC77\uDB40\uDC6C\uDB40\uDC73\uDB40\uDC7F', name: 'Cymru am Byth',       desc: 'Liberate all of Wales.', reward: { pet: 'dragon' },
-    check: function (x) { return nationDone(x.save, 'wales'); } },
-  { id: 'scotland',  icon: '\uD83C\uDFF4\uDB40\uDC67\uDB40\uDC62\uDB40\uDC73\uDB40\uDC63\uDB40\uDC74\uDB40\uDC7F', name: 'Flower of Scotland',  desc: 'Liberate all of Scotland.', reward: { pet: 'cow' },
-    check: function (x) { return nationDone(x.save, 'scotland'); } },
-  { id: 'ni',        icon: '🌉', name: 'Across the Water',    desc: 'Liberate all of Northern Ireland.', reward: { coins: 400 },
-    check: function (x) { return nationDone(x.save, 'ni'); } },
-  { id: 'untouch',   icon: '☂️', name: 'Untouchable',         desc: 'Liberate a county without taking any damage.', reward: { item: 'goldenBrolly' },
-    check: function (x) { return x.stats.noHitWins >= 1; } },
-  { id: 'kills10k',  icon: '👵', name: 'Ten Thousand Dead',   desc: 'Slay 10,000 zombies.', reward: { character: 'nana' },
-    check: function (x) { return x.stats.kills >= 10000; } },
-  { id: 'sword',     icon: '✨', name: 'Excalibur, Basically', desc: 'Forge the Sword of Light.', reward: { coins: 300 },
-    check: function (x) { return !!x.stats.evolved.swordOfLight; } },
-  { id: 'defender',  icon: '🛡️', name: 'Hold the Line',       desc: 'Repel 3 counter-attacks.', reward: { coins: 250 },
-    check: function (x) { return x.stats.defended >= 3; } },
-  { id: 'level50',   icon: '⭐', name: 'Unstoppable',         desc: 'Reach level 50 in a single mission.', reward: { coins: 250 },
-    check: function (x) { return x.stats.bestLevel >= 50; } },
-  { id: 'bosses',    icon: '🐲', name: 'Monster Hunter',      desc: 'Defeat every regional horde boss.', reward: { coins: 800 },
-    check: function (x) { return Object.keys(ZN.BOSSES).every(function (k) { return x.stats.bosses[k]; }); } },
-  { id: 'collector', icon: '🏆', name: 'Arms Collector',      desc: 'Evolve 8 different weapons.', reward: { coins: 600 },
-    check: function (x) { return Object.keys(x.stats.evolved).length >= 8; } },
-  { id: 'uk',        icon: '🇬🇧', name: 'Rule Britannia',     desc: 'Liberate every county in the UK at once.', reward: { coins: 5000 },
-    check: function (x) { return Object.keys(x.save.cleared).length >= ZN.COUNTIES.length; } }
+  { id: 'slayer', icon: '💀', name: 'Zombie Slayer', desc: 'Slay {n} zombies.', value: function (x) { return x.stats.kills; },
+    tiers: [[1000, { coins: 100 }], [10000, { character: 'nana' }], [25000, { coins: 500 }], [50000, { coins: 1000 }], [100000, { coins: 2500 }]] },
+  { id: 'liberator', icon: '🗺️', name: 'Liberator', desc: 'Hold {n} liberated counties at once.', value: function (x) { return countKeys(x.save.cleared); },
+    tiers: [[1, { coins: 50 }], [10, { coins: 200 }], [25, { coins: 500 }], [50, { coins: 1000 }], [69, { coins: 5000 }]] },
+  { id: 'evolver', icon: '🧬', name: 'Evolutionist', desc: 'Evolve {n} different weapons.', value: function (x) { return countKeys(x.stats.evolved); },
+    tiers: [[1, { coins: 100 }], [4, { coins: 250 }], [8, { coins: 600 }], [14, { coins: 1200 }], [20, { coins: 3000 }]] },
+  { id: 'hunter', icon: '🐲', name: 'Monster Hunter', desc: 'Defeat {n} different horde bosses.', value: function (x) { return countKeys(x.stats.bosses); },
+    tiers: [[1, { coins: 100 }], [5, { coins: 300 }], [10, { coins: 800 }], [14, { coins: 2000 }]] },
+  { id: 'bossKills', icon: '⚔️', name: 'Boss Breaker', desc: 'Slay {n} horde bosses in total.', value: function (x) { return x.stats.bossKills; },
+    tiers: [[5, { coins: 150 }], [25, { coins: 500 }], [100, { coins: 1500 }], [250, { coins: 4000 }]] },
+  { id: 'victor', icon: '🏅', name: 'Victor', desc: 'Win {n} missions.', value: function (x) { return x.stats.wins; },
+    tiers: [[5, { coins: 100 }], [25, { coins: 300 }], [100, { coins: 1000 }], [300, { coins: 3000 }]] },
+  { id: 'veteran', icon: '🎖️', name: 'Veteran', desc: 'Play {n} missions.', value: function (x) { return x.stats.runs; },
+    tiers: [[10, { coins: 100 }], [50, { coins: 300 }], [150, { coins: 800 }], [500, { coins: 2500 }]] },
+  { id: 'survivor', icon: '⏱️', name: 'Survivor', desc: 'Survive {n} minutes in total.', value: function (x) { return Math.floor(x.stats.timePlayed / 60); },
+    tiers: [[30, { coins: 150 }], [120, { coins: 500 }], [600, { coins: 2000 }]] },
+  { id: 'level', icon: '⭐', name: 'Unstoppable', desc: 'Reach level {n} in a single mission.', value: function (x) { return x.stats.bestLevel; },
+    tiers: [[25, { coins: 100 }], [50, { coins: 250 }], [75, { coins: 500 }], [100, { coins: 1000 }]] },
+  { id: 'defender', icon: '🛡️', name: 'Hold the Line', desc: 'Repel {n} counter-attacks.', value: function (x) { return x.stats.defended; },
+    tiers: [[1, { coins: 75 }], [3, { coins: 250 }], [10, { coins: 600 }], [25, { coins: 1500 }]] },
+  { id: 'daily', icon: '📅', name: 'Daily Grind', desc: 'Win {n} daily challenges.', value: function (x) { return x.stats.dailies; },
+    tiers: [[1, { coins: 150 }], [7, { coins: 500 }], [30, { coins: 1500 }], [100, { coins: 5000 }]] },
+  { id: 'untouch', icon: '☂️', name: 'Untouchable', desc: 'Win {n} missions without taking damage.', value: function (x) { return x.stats.noHitWins; },
+    tiers: [[1, { item: 'goldenBrolly' }], [5, { coins: 500 }], [15, { coins: 1500 }]] },
+  { id: 'powerups', icon: '💎', name: 'Power Hungry', desc: 'Collect {n} power-ups.', value: function (x) { return x.stats.buffs; },
+    tiers: [[10, { coins: 100 }], [50, { coins: 400 }], [200, { coins: 1200 }]] },
+  { id: 'fortune', icon: '💰', name: 'Fortune Hunter', desc: 'Earn {n} coins in total.', value: function (x) { return x.stats.coinsEarned; },
+    tiers: [[1000, { coins: 100 }], [10000, { coins: 500 }], [50000, { coins: 2000 }], [200000, { coins: 5000 }]] },
+  { id: 'southeast', icon: '👑', name: 'God Save the South', desc: 'Liberate Greater London and all of the South East.',
+    value: function (x) { return ZN.COUNTIES.every(function (c) { return (c.region !== 'se' && c.id !== 'london') || x.save.cleared[c.id]; }) ? 1 : 0; },
+    tiers: [[1, { pet: 'corgi' }]] },
+  { id: 'wales', icon: '🏴󠁧󠁢󠁷󠁬󠁳󠁿', name: 'Cymru am Byth', desc: 'Liberate all of Wales.',
+    value: function (x) { return nationValue(x.save, 'wales'); }, tiers: [[1, { pet: 'dragon' }]] },
+  { id: 'scotland', icon: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', name: 'Flower of Scotland', desc: 'Liberate all of Scotland.',
+    value: function (x) { return nationValue(x.save, 'scotland'); }, tiers: [[1, { pet: 'cow' }]] },
+  { id: 'ni', icon: '🌉', name: 'Across the Water', desc: 'Liberate all of Northern Ireland.',
+    value: function (x) { return nationValue(x.save, 'ni'); }, tiers: [[1, { coins: 400 }]] },
+  { id: 'sword', icon: '✨', name: 'Excalibur, Basically', desc: 'Forge the Sword of Light.',
+    value: function (x) { return x.stats.evolved.swordOfLight ? 1 : 0; }, tiers: [[1, { coins: 300 }]] }
 ];
+ZN.TIER_MEDALS = ['🥉', '🥈', '🥇', '💎', '👑'];
+ZN.TIER_NAMES = ['I', 'II', 'III', 'IV', 'V'];
+// Old one-off achievement ids -> [new id, tiers already earned] (used once to migrate saves)
+ZN.ACH_MIGRATE = { first: ['liberator', 1], ten: ['liberator', 2], uk: ['liberator', 5], kills1k: ['slayer', 1], kills10k: ['slayer', 2],
+  evolve: ['evolver', 1], collector: ['evolver', 3], bosses: ['hunter', 3], defender: ['defender', 2], daily: ['daily', 1],
+  level50: ['level', 2], untouch: ['untouch', 1], southeast: ['southeast', 1], wales: ['wales', 1], scotland: ['scotland', 1],
+  ni: ['ni', 1], sword: ['sword', 1] };
+ZN.achievementById = function (id) { for (var i = 0; i < ZN.ACHIEVEMENTS.length; i++) if (ZN.ACHIEVEMENTS[i].id === id) return ZN.ACHIEVEMENTS[i]; return null; };
 
 // Achievement-only rewards
 ZN.PASSIVES.goldenBrolly = { name: 'Golden Brolly', icon: '🌂', desc: '+1 armour and 6% chance to block a hit per level',
   apply: function (s, l) { s.armor += l; s.block += 0.06 * l; } };
-ZN.CHARACTERS.push({ id: 'nana', name: 'Nana Doris', title: 'Retired Air-Raid Warden', icon: '👵', cost: 0, achievement: 'kills10k',
+ZN.CHARACTERS.push({ id: 'nana', name: 'Nana Doris', title: 'Retired Air-Raid Warden', icon: '👵', cost: 0, achievement: 'slayer', achievementTier: 2,
   start: 'lightning', perks: '+20% XP, 1 extra revive, +10% damage.', coat: '#7a5a8a', hat: 'headscarf', hatColor: '#c84a6a',
   apply: function (s) { s.growth += 0.2; s.revival += 1; s.might += 0.1; } });
 

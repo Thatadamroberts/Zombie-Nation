@@ -47,7 +47,8 @@
   function updateTitleBadges() {
     var dl = Save.daily();
     $('daily-badge').classList.toggle('hidden', dl.done);
-    $('ach-count').textContent = Object.keys(Save.data.achievements).length + '/' + ZN.ACHIEVEMENTS.length;
+    var tc = Save.tierCounts();
+    $('ach-count').textContent = tc.got + '/' + tc.total;
   }
 
   var toastQ = [], toastBusy = false;
@@ -226,9 +227,9 @@
       if (sel) b = el('button', 'btn buy', 'Chosen');
       else if (owned) b = el('button', 'btn buy', 'Select');
       else if (ch.achievement) {
-        var ac = ZN.ACHIEVEMENTS.filter(function (a) { return a.id === ch.achievement; })[0];
+        var ac = ZN.achievementById(ch.achievement), tg = ac.tiers[(ch.achievementTier || 1) - 1][0];
         b = el('button', 'btn buy', '🔒'); b.disabled = true;
-        body.appendChild(el('div', 'reward', 'Unlock: ' + ac.name + ' (' + ac.desc + ')'));
+        body.appendChild(el('div', 'reward', 'Unlock: ' + Save.tierLabel(ac, ch.achievementTier || 1) + ' (' + ac.desc.replace('{n}', fmt(tg)) + ')'));
       }
       else { b = el('button', 'btn buy primary', '💰 ' + fmt(ch.cost)); b.disabled = d.coins < ch.cost; }
       b.onclick = function () {
@@ -251,7 +252,8 @@
     list.appendChild(el('div', 'desc', '<span style="color:var(--muted);font-size:13px;padding:0 4px">Companions can never be hurt, and each one gives you a bonus.</span>'));
     Object.keys(ZN.PETS).forEach(function (id) {
       var pet = ZN.PETS[id], have = !!d.pets[id], sel = d.pet === id;
-      var ac = ZN.ACHIEVEMENTS.filter(function (a) { return a.reward.pet === id; })[0];
+      var ac = ZN.ACHIEVEMENTS.filter(function (a) { return a.tiers.some(function (t) { return t[1].pet === id; }); })[0];
+      if (ac) ac = { name: ac.name, desc: ac.desc.replace('{n}', '') };
       var buyable = !have && pet.cost;
       var row = el('div', 'item pet-row' + (sel ? ' selected-surv' : '') + (have || buyable ? '' : ' locked'));
       row.appendChild(icon(have || buyable ? pet.icon : '🔒', sel ? '#e0b030' : '#3a414c'));
@@ -275,25 +277,39 @@
 
   // ------------------------------------------------------- achievements
   function renderAchievements() {
-    var list = $('achievement-list'), d = Save.data, got = 0;
+    var list = $('achievement-list'), d = Save.data, x = { save: d, stats: d.stats };
     list.innerHTML = '';
     ZN.ACHIEVEMENTS.forEach(function (a) {
-      var earned = !!d.achievements[a.id]; if (earned) got++;
-      var row = el('div', 'item ' + (earned ? 'earned' : 'unearned'));
-      row.appendChild(icon(a.icon, earned ? '#4caf50' : '#3a414c'));
+      var have = (d.achTiers && d.achTiers[a.id]) || 0, done = have >= a.tiers.length, v = a.value(x);
+      var row = el('div', 'item ach ' + (have ? 'earned' : 'unearned') + (done ? ' complete' : ''));
+      row.appendChild(icon(a.icon, done ? '#ffd23a' : have ? '#4caf50' : '#3a414c'));
       var body = el('div', 'body');
-      body.appendChild(el('div', 'name', a.name + (earned ? ' ✅' : '')));
-      body.appendChild(el('div', 'desc', a.desc));
-      body.appendChild(el('div', 'reward', 'Reward: ' + Save.rewardText(a.reward)));
+      var medals = '';
+      if (a.tiers.length > 1) for (var i = 0; i < a.tiers.length; i++) medals += '<span class="medal' + (i < have ? ' on' : '') + '">' + ZN.TIER_MEDALS[i] + '</span>';
+      body.appendChild(el('div', 'name', a.name + (a.tiers.length > 1 && have ? ' ' + ZN.TIER_NAMES[have - 1] : '') + (done ? ' ✅' : '') + '<span class="medals">' + medals + '</span>'));
+      if (done) {
+        body.appendChild(el('div', 'desc', a.desc.replace('{n}', fmt(a.tiers[a.tiers.length - 1][0])) + ' <b>Complete!</b>'));
+      } else {
+        var goal = a.tiers[have][0];
+        body.appendChild(el('div', 'desc', a.desc.replace('{n}', fmt(goal))));
+        if (goal > 1) {
+          var pct = Math.max(0, Math.min(100, v / goal * 100));
+          body.appendChild(el('div', 'ach-prog', '<div class="bar"><div class="bar-fill xp" style="width:' + pct + '%"></div></div><span>' + fmt(Math.min(v, goal)) + ' / ' + fmt(goal) + '</span>'));
+        }
+        body.appendChild(el('div', 'reward', (a.tiers.length > 1 ? 'Tier ' + ZN.TIER_NAMES[have] + ' reward: ' : 'Reward: ') + Save.rewardText(a.tiers[have][1])));
+      }
       row.appendChild(body);
       list.appendChild(row);
     });
     var st = d.stats;
     list.appendChild(el('div', 'section-h', 'Service record'));
     list.appendChild(el('div', 'item', '<div class="body"><div class="desc">Zombies slain: <b>' + fmt(st.kills) + '</b><br>Missions: <b>' + st.runs + '</b> · Victories: <b>' + st.wins +
-      '</b><br>Best level: <b>' + st.bestLevel + '</b> · Weapons evolved: <b>' + Object.keys(st.evolved).length + '</b><br>Bosses slain: <b>' + Object.keys(st.bosses).length + '/' + Object.keys(ZN.BOSSES).length +
-      '</b> · Counter-attacks repelled: <b>' + st.defended + '</b><br>Daily challenges won: <b>' + st.dailies + '</b></div></div>'));
-    $('ach-progress').textContent = got + '/' + ZN.ACHIEVEMENTS.length;
+      '</b><br>Time survived: <b>' + fmt(st.timePlayed / 60) + ' min</b> · Coins earned: <b>' + fmt(st.coinsEarned) +
+      '</b><br>Best level: <b>' + st.bestLevel + '</b> · Weapons evolved: <b>' + Object.keys(st.evolved).length + '/20</b><br>Bosses slain: <b>' + st.bossKills +
+      '</b> (' + Object.keys(st.bosses).length + '/' + Object.keys(ZN.BOSSES).length + ' types) · Power-ups: <b>' + st.buffs +
+      '</b><br>Counter-attacks repelled: <b>' + st.defended + '</b> · Daily challenges won: <b>' + st.dailies + '</b></div></div>'));
+    var tc = Save.tierCounts();
+    $('ach-progress').textContent = tc.got + '/' + tc.total;
   }
 
   // -------------------------------------------------------------- daily
@@ -512,7 +528,8 @@
     d.stats.bestLevel = Math.max(d.stats.bestLevel, r.level);
     if (firstClear) d.cleared[county.id] = g.waves;
     r.evolved.forEach(function (id) { d.stats.evolved[id] = true; });
-    if (r.win) d.stats.bosses[r.bossKey] = true;
+    if (r.win) { d.stats.bosses[r.bossKey] = true; d.stats.bossKills++; }
+    d.stats.timePlayed += r.time; d.stats.coinsEarned += coins; d.stats.buffs += r.buffs || 0;
     if (r.win && r.damageTaken === 0) d.stats.noHitWins++;
     var threats = isDaily ? { defended: null, fallen: [], newThreat: null } : Save.updateThreats(county.id, r.win);
     if (threats.defended) d.stats.defended++;
@@ -550,9 +567,10 @@
       if (id !== threats.newThreat) html += '<div class="warn-box">⚠️ ' + ZN.MAP.byId[id].name + ' falls in ' + d.threats[id] + ' mission' + (d.threats[id] > 1 ? 's' : '') + '.</div>';
     });
     var earned = Save.checkAchievements();
-    earned.forEach(function (a) {
-      html += '<div class="unlock">🏆 <b>Achievement: ' + a.name + '</b><br>' + Save.rewardText(a.reward) + '</div>';
-      toast('🏆 ' + a.name);
+    earned.forEach(function (e) {
+      var medal = e.a.tiers.length > 1 ? ZN.TIER_MEDALS[e.tier - 1] + ' ' : '🏆 ';
+      html += '<div class="unlock">' + medal + '<b>Achievement: ' + Save.tierLabel(e.a, e.tier) + '</b><br>' + Save.rewardText(e.reward) + '</div>';
+      toast(medal + Save.tierLabel(e.a, e.tier));
     });
     Save.save();
     $('res-ok').textContent = isDaily ? 'Done' : 'Back to Map';
@@ -654,7 +672,12 @@
     window.addEventListener('resize', function () { if (current === 'map') sizeMap(); });
     updateSoundButtons(); updateTitleBadges();
     ZN.Music.play('menu');
-    if (Save.checkAchievements().length) Save.save();
+    var startup = Save.checkAchievements();
+    if (startup.length) {
+      Save.save();
+      startup.forEach(function (e) { toast((e.a.tiers.length > 1 ? ZN.TIER_MEDALS[e.tier - 1] : '🏆') + ' ' + Save.tierLabel(e.a, e.tier) + ' · ' + Save.rewardText(e.reward)); });
+    }
+    updateTitleBadges();
     if (!Save.data.seenIntro) { Save.data.seenIntro = true; Save.save(); }
   }
 

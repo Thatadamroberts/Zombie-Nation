@@ -187,3 +187,11 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .buff-chip .bt { position: absolute; left: 0; bottom: 0; height: 3px; }
 @keyframes chipin { from { transform: scale(1.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .pet-buff { font-size: 12px; font-weight: 800; color: #7dff8a; margin-top: 3px; }
+
+.item.ach.complete { border-color: #ffd23a; background: linear-gradient(135deg, #2e2a14, #1d2127); }
+.medals { float: right; font-size: 13px; letter-spacing: 1px; }
+.medal { opacity: 0.22; filter: grayscale(1); }
+.medal.on { opacity: 1; filter: none; }
+.ach-prog { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+.ach-prog .bar { flex: 1; height: 7px; }
+.ach-prog span { font-size: 11px; color: var(--muted); font-weight: 700; white-space: nowrap; }

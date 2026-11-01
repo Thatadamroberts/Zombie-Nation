@@ -2,6 +2,17 @@ plugins {
     id 'com.android.application'
 }
 
+// Every CI build gets a higher version number so Android installs it as an update.
+def buildNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
+
+// Permanent signing key, supplied by CI from the repository's Actions secrets
+// (ZN_KEYSTORE_BASE64 / ZN_KEYSTORE_PASSWORD). Android only installs an update over an
+// existing app when both are signed with the same key. Without the secrets the build
+// falls back to the throwaway debug key.
+def keystorePath = System.getenv('ZN_KEYSTORE_FILE')
+def keystorePassword = System.getenv('ZN_KEYSTORE_PASSWORD')
+def hasSharedKey = keystorePath && keystorePassword && file(keystorePath).exists()
+
 android {
     namespace 'com.zombienation.game'
     compileSdk 35
@@ -10,16 +21,28 @@ android {
         applicationId 'com.zombienation.game'
         minSdk 24
         targetSdk 35
-        versionCode 1
-        versionName '1.0'
+        versionCode buildNumber
+        versionName "1.${buildNumber}"
+    }
+
+    signingConfigs {
+        if (hasSharedKey) {
+            shared {
+                storeFile file(keystorePath)
+                storePassword keystorePassword
+                keyAlias 'zombienation'
+                keyPassword keystorePassword
+            }
+        }
     }
 
     buildTypes {
+        debug {
+            if (hasSharedKey) signingConfig signingConfigs.shared
+        }
         release {
             minifyEnabled false
-            // Signed with the debug key so the release APK installs out of the box.
-            // Swap in your own keystore before publishing to the Play Store.
-            signingConfig signingConfigs.debug
+            signingConfig hasSharedKey ? signingConfigs.shared : signingConfigs.debug
         }
     }
 

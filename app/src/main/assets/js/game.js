@@ -509,7 +509,7 @@
     if (this.raf) cancelAnimationFrame(this.raf);
     this.opts.onEnd({ win: this.victory, kills: this.kills, coins: this.runCoins, xp: Math.round(this.runXp),
       level: this.player.level, time: this.time, wavesDone: this.victory ? this.waves : this.waveIdx,
-      damageTaken: this.damageTaken, evolved: this.evolvedIds.slice(), bossKey: this.bossKey });
+      damageTaken: this.damageTaken, evolved: this.evolvedIds.slice(), bossKey: this.bossKey, buffs: this.buffsCollected || 0 });
   };
 
   // ----------------------------------------------------------------- update
@@ -1007,6 +1007,7 @@
 
   G.activateBuff = function (id) {
     var b = ZN.BUFFS[id], p = this.player;
+    this.buffsCollected = (this.buffsCollected || 0) + 1;
     this.buffs[id] = b.time * (id === 'freeze' ? this.stat.duration : 1);
     if (id === 'freeze') this.enemies.forEach(function (e) { if (e.def.boss) e.slowT = Math.max(e.slowT, b.time); });
     this.computeStats();

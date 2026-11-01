@@ -5,6 +5,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,14 +23,42 @@ jobs:
         with:
           packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
-      - name: Build debug and release APKs
+      # The permanent signing key comes from encrypted repository secrets, so every
+      # build can be installed over the previous one.
+      - name: Load signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.ZN_KEYSTORE_BASE64 }}
+          KEYSTORE_PW: ${{ secrets.ZN_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PW" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/zn.jks"
+            echo "ZN_KEYSTORE_FILE=$RUNNER_TEMP/zn.jks" >> "$GITHUB_ENV"
+            echo "ZN_KEYSTORE_PASSWORD=$KEYSTORE_PW" >> "$GITHUB_ENV"
+            echo "Signing with the permanent Zombie Nation key."
+          else
+            echo "::warning::ZN_KEYSTORE_BASE64 / ZN_KEYSTORE_PASSWORD secrets not set. Using a throwaway debug key, so this APK cannot update an existing install."
+          fi
+
+      - name: Build release APK
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon assembleDebug assembleRelease
+          ./gradlew --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk "ZombieNation-1.${{ github.run_number }}.apk"
 
       - uses: actions/upload-artifact@v4
         with:
           name: zombie-nation-apk
-          path: |
-            app/build/outputs/apk/debug/app-debug.apk
-            app/build/outputs/apk/release/app-release.apk
+          path: ZombieNation-1.${{ github.run_number }}.apk
+
+      # Each push publishes a release, so the newest APK is always on the Releases page.
+      - name: Publish release
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git log -1 --pretty=%B | grep -v -e '^Co-Authored-By' -e '^Claude-Session' > notes.txt
+          gh release create "v1.${{ github.run_number }}" "ZombieNation-1.${{ github.run_number }}.apk" \
+            --target "${{ github.sha }}" \
+            --title "Zombie Nation 1.${{ github.run_number }}" \
+            --notes-file notes.txt \
+            --latest

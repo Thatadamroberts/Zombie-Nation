@@ -6,8 +6,9 @@
   function defaults() {
     return { v: 1, coins: 0, accXp: 0, accLevel: 1, cleared: {}, shop: {}, sound: true, haptics: true, shake: true,
       character: 'tommy', owned: { tommy: true }, threats: {}, music: true,
-      achievements: {}, pets: {}, pet: null, items: {}, daily: { date: '', won: false },
-      stats: { kills: 0, runs: 0, wins: 0, bestLevel: 0, evolved: {}, bosses: {}, dailies: 0, noHitWins: 0, defended: 0 },
+      achievements: {}, achTiers: null, pets: {}, pet: null, items: {}, daily: { date: '', won: false },
+      stats: { kills: 0, runs: 0, wins: 0, bestLevel: 0, evolved: {}, bosses: {}, dailies: 0, noHitWins: 0, defended: 0,
+        bossKills: 0, timePlayed: 0, coinsEarned: 0, buffs: 0 },
       seenIntro: false };
   }
 
@@ -42,7 +43,22 @@
         } catch (e) { /* corrupt save: start fresh */ }
       }
       Save.data = d;
+      Save.migrate();
       return d;
+    },
+
+    // Converts the old one-off achievements into tiers already earned (no rewards paid twice)
+    migrate: function () {
+      var d = Save.data;
+      if (d.achTiers) return;
+      d.achTiers = {};
+      for (var old in d.achievements) {
+        var m = ZN.ACH_MIGRATE[old];
+        if (m) d.achTiers[m[0]] = Math.max(d.achTiers[m[0]] || 0, m[1]);
+      }
+      // Rough back-fill for stats that did not exist before
+      if (!d.stats.bossKills) d.stats.bossKills = d.stats.wins || 0;
+      if (!d.stats.coinsEarned) d.stats.coinsEarned = d.coins || 0;
     },
     save: function () { rawSave(JSON.stringify(Save.data)); },
     reset: function () { Save.data = defaults(); Save.save(); },
@@ -72,19 +88,30 @@
     },
 
     // Grants any newly earned achievements; returns the list of them
+    // Returns a list of { a, tier (1-based), reward } for each newly earned tier
     checkAchievements: function () {
       var d = Save.data, x = { save: d, stats: d.stats }, out = [];
+      if (!d.achTiers) Save.migrate();
       ZN.ACHIEVEMENTS.forEach(function (a) {
-        if (d.achievements[a.id] || !a.check(x)) return;
-        d.achievements[a.id] = Date.now();
-        var r = a.reward;
-        if (r.coins) d.coins += r.coins;
-        if (r.character) d.owned[r.character] = true;
-        if (r.pet) { d.pets[r.pet] = true; if (!d.pet) d.pet = r.pet; }
-        if (r.item) d.items[r.item] = true;
-        out.push(a);
+        var have = d.achTiers[a.id] || 0, v = a.value(x);
+        while (have < a.tiers.length && v >= a.tiers[have][0]) {
+          var r = a.tiers[have][1];
+          if (r.coins) d.coins += r.coins;
+          if (r.character) d.owned[r.character] = true;
+          if (r.pet) { d.pets[r.pet] = true; if (!d.pet) d.pet = r.pet; }
+          if (r.item) d.items[r.item] = true;
+          have++;
+          out.push({ a: a, tier: have, reward: r });
+        }
+        d.achTiers[a.id] = have;
       });
       return out;
+    },
+    tierLabel: function (a, tier) { return a.tiers.length > 1 ? a.name + ' ' + ZN.TIER_NAMES[tier - 1] : a.name; },
+    tierCounts: function () {
+      var d = Save.data, got = 0, total = 0;
+      ZN.ACHIEVEMENTS.forEach(function (a) { got += (d.achTiers && d.achTiers[a.id]) || 0; total += a.tiers.length; });
+      return { got: got, total: total };
     },
     rewardText: function (r) {
       if (r.coins) return '💰 ' + r.coins + ' coins';
@@ -125,7 +152,7 @@
         var d = defaults();
         for (var k in data) d[k] = data[k];
         d.stats = Object.assign(defaults().stats, data.stats || {});
-        Save.data = d; Save.save();
+        Save.data = d; Save.migrate(); Save.save();
         return null;
       } catch (e) { return 'That code could not be read.'; }
     },
