@@ -19,15 +19,19 @@
       </div>
       <div class="menu">
         <button class="btn big primary" data-go="map">Campaign</button>
+        <button class="btn big daily-btn" data-go="daily">📅 Daily Challenge <span id="daily-badge" class="badge hidden">NEW</span></button>
         <button class="btn big" data-go="survivors">Survivors</button>
         <button class="btn big" data-go="shop">Upgrades</button>
         <button class="btn big" data-go="armoury">Armoury</button>
+        <button class="btn big" data-go="achievements">Achievements <span id="ach-count" class="muted-count"></span></button>
         <button class="btn big" data-go="help">How to Play</button>
       </div>
       <div class="title-foot">
+        <button class="btn small" id="btn-music">Music: On</button>
         <button class="btn small" id="btn-sound">Sound: On</button>
         <button class="btn small" id="btn-haptics">Vibration: On</button>
         <button class="btn small" id="btn-shake">Shake: On</button>
+        <button class="btn small" id="btn-backup">Backup / Restore</button>
         <button class="btn small danger" id="btn-reset">Reset Save</button>
       </div>
     </div>
@@ -78,6 +82,26 @@
     <div class="scroll-list" id="survivor-list"></div>
   </section>
 
+  <!-- Achievements -->
+  <section id="screen-achievements" class="screen">
+    <header class="topbar">
+      <button class="btn icon" data-go="title">‹</button>
+      <div class="screen-title">Achievements</div>
+      <div class="coins"><span id="ach-progress">0/0</span></div>
+    </header>
+    <div class="scroll-list" id="achievement-list"></div>
+  </section>
+
+  <!-- Daily challenge -->
+  <section id="screen-daily" class="screen">
+    <header class="topbar">
+      <button class="btn icon" data-go="title">‹</button>
+      <div class="screen-title">Daily Challenge</div>
+      <div class="coins"><span>💰</span><span id="daily-coins">0</span></div>
+    </header>
+    <div class="scroll-list" id="daily-body"></div>
+  </section>
+
   <!-- Armoury -->
   <section id="screen-armoury" class="screen">
     <header class="topbar">
@@ -104,6 +128,12 @@
       <p>The horde fights back. A liberated county bordering overrun land may come under attack (it flashes red on the map). Defend it by winning a mission there within 3 missions, or it falls back to the zombies.</p>
       <h3>Survivors and bosses</h3>
       <p>Buy new survivors with coins: each starts with a different weapon and perks. Every region has its own horde boss, from Nessie in the Highlands to the Stonehenge Druid. Watch for red warning circles: get out before the slam lands!</p>
+      <h3>Daily challenge</h3>
+      <p>Every day there is a new challenge: a random county with two twists, like thick fog or zombie sprinters. Win it once a day for a big coin bonus. It does not affect your campaign map.</p>
+      <h3>Achievements and companions</h3>
+      <p>Achievements earn coins and unlock exclusive rewards: liberate all of Wales for a dragon companion, take Scotland for a Highland coo, clear London and the South East for a Royal Corgi. Pick your companion on the Survivors screen.</p>
+      <h3>Backups</h3>
+      <p>Use Backup / Restore on the title screen to copy your save as a code and restore it on another phone.</p>
       <h3>Levelling up in a mission</h3>
       <p>Zombies drop XP gems. Each level lets you pick a new weapon, a passive item, or an upgrade. You can carry 6 weapons and 6 passives. Elite zombies drop treasure chests.</p>
       <h3>Evolutions</h3>
@@ -154,6 +184,7 @@
       <button class="btn big primary" id="pause-resume">Resume</button>
       <button class="btn big" id="pause-sound">Sound: On</button>
       <button class="btn big" id="pause-haptics">Vibration: On</button>
+      <button class="btn big" id="pause-music">Music: On</button>
       <button class="btn big danger" id="pause-quit">Abandon Mission</button>
     </div>
   </div>
@@ -166,6 +197,25 @@
       <button class="btn big primary" id="res-ok">Back to Map</button>
     </div>
   </div>
+
+  <div id="ov-backup" class="overlay hidden">
+    <div class="ov-box">
+      <div class="ov-title">BACKUP</div>
+      <div class="ov-sub">Save this code somewhere safe (notes, email, cloud drive). Paste it into Restore on any device to carry your progress over.</div>
+      <textarea id="backup-out" class="codebox" readonly></textarea>
+      <div class="row2">
+        <button class="btn" id="backup-copy">Copy</button>
+        <button class="btn" id="backup-share">Share…</button>
+      </div>
+      <div class="ov-sub" style="margin-top:16px">Restore from a code:</div>
+      <textarea id="backup-in" class="codebox" placeholder="Paste a ZN1-… code here"></textarea>
+      <div id="backup-msg" class="ov-sub"></div>
+      <button class="btn big primary" id="backup-restore">Restore</button>
+      <button class="btn big" id="backup-close">Close</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
 
   <div id="ov-confirm" class="overlay hidden">
     <div class="ov-box">
@@ -182,6 +232,7 @@
 <script src="js/save.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/art.js"></script>
+<script src="js/sprites.js"></script>
 <script src="js/game.js"></script>
 <script src="js/weapons.js"></script>
 <script src="js/ui.js"></script>

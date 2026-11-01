@@ -18,7 +18,10 @@
     if (name === 'shop') renderShop();
     if (name === 'armoury') renderArmoury();
     if (name === 'survivors') renderSurvivors();
-    if (name === 'title') updateSoundButtons();
+    if (name === 'achievements') renderAchievements();
+    if (name === 'daily') renderDaily();
+    if (name === 'title') { updateSoundButtons(); updateTitleBadges(); }
+    if (name !== 'game') ZN.Music.play('menu');
   }
   ZN.show = show;
 
@@ -37,6 +40,26 @@
     $('btn-sound').textContent = t; $('pause-sound').textContent = t;
     $('btn-haptics').textContent = h; $('pause-haptics').textContent = h;
     $('btn-shake').textContent = 'Shake: ' + (d.shake !== false ? 'On' : 'Off');
+    var m = 'Music: ' + (d.music !== false ? 'On' : 'Off');
+    $('btn-music').textContent = m; $('pause-music').textContent = m;
+  }
+
+  function updateTitleBadges() {
+    var dl = Save.daily();
+    $('daily-badge').classList.toggle('hidden', dl.done);
+    $('ach-count').textContent = Object.keys(Save.data.achievements).length + '/' + ZN.ACHIEVEMENTS.length;
+  }
+
+  var toastQ = [], toastBusy = false;
+  function toast(html) {
+    toastQ.push(html);
+    if (toastBusy) return;
+    (function next() {
+      if (!toastQ.length) { toastBusy = false; return; }
+      toastBusy = true;
+      var t = $('toast'); t.innerHTML = toastQ.shift(); t.classList.add('show');
+      setTimeout(function () { t.classList.remove('show'); setTimeout(next, 400); }, 2600);
+    })();
   }
 
   // -------------------------------------------------------------- map
@@ -202,6 +225,11 @@
       var b;
       if (sel) b = el('button', 'btn buy', 'Chosen');
       else if (owned) b = el('button', 'btn buy', 'Select');
+      else if (ch.achievement) {
+        var ac = ZN.ACHIEVEMENTS.filter(function (a) { return a.id === ch.achievement; })[0];
+        b = el('button', 'btn buy', '🔒'); b.disabled = true;
+        body.appendChild(el('div', 'reward', 'Unlock: ' + ac.name + ' (' + ac.desc + ')'));
+      }
       else { b = el('button', 'btn buy primary', '💰 ' + fmt(ch.cost)); b.disabled = d.coins < ch.cost; }
       b.onclick = function () {
         if (sel) return;
@@ -212,6 +240,67 @@
       row.appendChild(b);
       list.appendChild(row);
     });
+
+    list.appendChild(el('div', 'section-h', 'Companion'));
+    var none = el('div', 'item pet-row' + (!d.pet ? ' selected-surv' : ''));
+    none.appendChild(icon('🚫', '#3a414c'));
+    none.appendChild(el('div', 'body', '<div class="name">No companion</div><div class="desc">Go it alone.</div>'));
+    var nb = el('button', 'btn buy', !d.pet ? 'Chosen' : 'Select');
+    nb.onclick = function () { d.pet = null; Save.save(); renderSurvivors(); };
+    none.appendChild(nb); list.appendChild(none);
+    Object.keys(ZN.PETS).forEach(function (id) {
+      var pet = ZN.PETS[id], have = !!d.pets[id], sel = d.pet === id;
+      var ac = ZN.ACHIEVEMENTS.filter(function (a) { return a.reward.pet === id; })[0];
+      var row = el('div', 'item pet-row' + (sel ? ' selected-surv' : '') + (have ? '' : ' locked'));
+      row.appendChild(icon(have ? pet.icon : '🔒', sel ? '#e0b030' : '#3a414c'));
+      var body = el('div', 'body');
+      body.appendChild(el('div', 'name', pet.name));
+      body.appendChild(el('div', 'desc', have ? pet.desc : 'Unlock: ' + ac.name + ' (' + ac.desc + ')'));
+      row.appendChild(body);
+      var b = el('button', 'btn buy', sel ? 'Chosen' : have ? 'Select' : '🔒');
+      b.disabled = !have;
+      b.onclick = function () { if (!have) return; d.pet = id; Save.save(); ZN.Audio.play('click'); renderSurvivors(); };
+      row.appendChild(b); list.appendChild(row);
+    });
+  }
+
+  // ------------------------------------------------------- achievements
+  function renderAchievements() {
+    var list = $('achievement-list'), d = Save.data, got = 0;
+    list.innerHTML = '';
+    ZN.ACHIEVEMENTS.forEach(function (a) {
+      var earned = !!d.achievements[a.id]; if (earned) got++;
+      var row = el('div', 'item ' + (earned ? 'earned' : 'unearned'));
+      row.appendChild(icon(a.icon, earned ? '#4caf50' : '#3a414c'));
+      var body = el('div', 'body');
+      body.appendChild(el('div', 'name', a.name + (earned ? ' ✅' : '')));
+      body.appendChild(el('div', 'desc', a.desc));
+      body.appendChild(el('div', 'reward', 'Reward: ' + Save.rewardText(a.reward)));
+      row.appendChild(body);
+      list.appendChild(row);
+    });
+    var st = d.stats;
+    list.appendChild(el('div', 'section-h', 'Service record'));
+    list.appendChild(el('div', 'item', '<div class="body"><div class="desc">Zombies slain: <b>' + fmt(st.kills) + '</b><br>Missions: <b>' + st.runs + '</b> · Victories: <b>' + st.wins +
+      '</b><br>Best level: <b>' + st.bestLevel + '</b> · Weapons evolved: <b>' + Object.keys(st.evolved).length + '</b><br>Bosses slain: <b>' + Object.keys(st.bosses).length + '/' + Object.keys(ZN.BOSSES).length +
+      '</b> · Counter-attacks repelled: <b>' + st.defended + '</b><br>Daily challenges won: <b>' + st.dailies + '</b></div></div>'));
+    $('ach-progress').textContent = got + '/' + ZN.ACHIEVEMENTS.length;
+  }
+
+  // -------------------------------------------------------------- daily
+  function renderDaily() {
+    var body = $('daily-body'), dl = Save.daily(), c = dl.county, boss = ZN.BOSSES[ZN.bossFor(c)];
+    $('daily-coins').textContent = fmt(Save.data.coins);
+    var html = '<div class="daily-card"><div class="section-h" style="margin:0 0 6px">' + new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) + '</div>' +
+      '<h2>' + c.name + '</h2><div class="desc" style="color:var(--muted)">' + ZN.DAILY_WAVES + ' waves + ' + boss.name + '</div></div>' +
+      '<div class="daily-card"><div class="section-h" style="margin:0 0 4px">Today\'s twists</div>' +
+      dl.mods.map(function (m) { var md = ZN.DAILY_MODS[m]; return '<div class="mod"><div class="mi">' + md.icon + '</div><div><b>' + md.name + '</b><div class="desc" style="color:var(--muted)">' + md.desc + '</div></div></div>'; }).join('') +
+      '</div><div class="daily-card">' + (dl.done ? '✅ <b>Completed today!</b> Come back tomorrow for a new challenge. You can still replay it for coins and XP.' :
+      '🏆 Reward for winning: <b>💰 ' + ZN.DAILY_REWARD + ' coins</b> (once per day). Your campaign map is not affected.') + '</div>';
+    body.innerHTML = html;
+    var b = el('button', 'btn big primary', dl.done ? 'Play Again' : 'Start Challenge');
+    b.onclick = function () { ZN.Audio.play('click'); startMission(c.id, dl); };
+    body.appendChild(b);
   }
 
   // ---------------------------------------------------------- armoury
@@ -268,20 +357,23 @@
   }
 
   // ---------------------------------------------------------- mission
-  function startMission(id) {
-    var c = ZN.MAP.byId[id], cleared = Save.isCleared(id), waves = Save.wavesFor(id), defend = Save.isThreatened(id);
+  function startMission(id, daily) {
+    var c = ZN.MAP.byId[id], cleared = Save.isCleared(id), waves = Save.wavesFor(id), defend = !daily && Save.isThreatened(id);
     var tier = defend ? Save.clearedCount() : cleared ? waves - 1 : Save.clearedCount();
-    Save.data.lastCounty = id;
+    if (daily) { waves = ZN.DAILY_WAVES; tier = Math.max(3, Save.clearedCount()); cleared = true; }
+    else Save.data.lastCounty = id;
     show('game');
     $('hud-boss').classList.add('hidden');
     game = new ZN.Game($('game-canvas'), {
       county: c, waves: waves, tier: tier, replay: cleared, defend: defend, character: Save.data.character,
+      pet: Save.data.pet, daily: !!daily, mods: daily ? daily.mods : [],
       onHud: updateHud, onBanner: showBanner,
       onLevelUp: showLevelUp, onChest: showChest, onEnd: endMission
     });
     ZN.game = game;
     updateHud(game);
     game.start();
+    ZN.Music.play('battle');
   }
 
   function updateHud(g) {
@@ -376,23 +468,32 @@
   }
 
   function endMission(r) {
-    var d = Save.data, g = game, county = g.county, firstClear = r.win && !Save.isCleared(county.id);
-    var bonus = 0;
+    var d = Save.data, g = game, county = g.county, isDaily = g.opts.daily, firstClear = !isDaily && r.win && !Save.isCleared(county.id);
+    var bonus = 0, dailyBonus = 0;
     var defending = g.opts.defend;
-    if (r.win) bonus = Math.round((40 + 20 * g.waves) * g.stat.greed * (firstClear || defending ? 1 : 0.5));
-    var coins = Math.round(r.coins) + bonus;
+    if (r.win && !isDaily) bonus = Math.round((40 + 20 * g.waves) * g.stat.greed * (firstClear || defending ? 1 : 0.5));
+    if (r.win && isDaily) {
+      var today = Save.todayKey();
+      if (!(d.daily.date === today && d.daily.won)) { dailyBonus = ZN.DAILY_REWARD; d.daily = { date: today, won: true }; d.stats.dailies++; }
+    }
+    var coins = Math.round(r.coins) + bonus + dailyBonus;
     var accXp = r.xp + 30 * r.wavesDone + (firstClear ? 50 * g.waves : 0);
     d.coins += coins;
     d.stats.kills += r.kills; d.stats.runs++;
     if (r.win) d.stats.wins++;
     d.stats.bestLevel = Math.max(d.stats.bestLevel, r.level);
     if (firstClear) d.cleared[county.id] = g.waves;
-    var threats = Save.updateThreats(county.id, r.win);
+    r.evolved.forEach(function (id) { d.stats.evolved[id] = true; });
+    if (r.win) d.stats.bosses[r.bossKey] = true;
+    if (r.win && r.damageTaken === 0) d.stats.noHitWins++;
+    var threats = isDaily ? { defended: null, fallen: [], newThreat: null } : Save.updateThreats(county.id, r.win);
+    if (threats.defended) d.stats.defended++;
     var gained = Save.addAccountXp(accXp);
     Save.save();
 
     $('res-title').textContent = r.win ? 'LIBERATED!' : 'DEFEATED';
-    $('res-sub').textContent = r.win ? county.name + (firstClear ? ' is free from the horde.' : ' secured again.') : county.name + ' remains overrun. Your coins are kept.';
+    $('res-sub').textContent = isDaily ? (r.win ? 'Daily challenge complete!' : 'The daily challenge beat you this time.') :
+      r.win ? county.name + (firstClear ? ' is free from the horde.' : ' secured again.') : county.name + ' remains overrun. Your coins are kept.';
     var mins = Math.floor(r.time / 60), secs = Math.floor(r.time % 60);
     var rows = [
       ['Time survived', mins + ':' + (secs < 10 ? '0' : '') + secs],
@@ -402,6 +503,7 @@
       ['Coins collected', '💰 ' + fmt(r.coins)]
     ];
     if (bonus) rows.push([firstClear ? 'Liberation bonus' : defending ? 'Defence bonus' : 'Replay bonus', '💰 ' + fmt(bonus)]);
+    if (dailyBonus) rows.push(['Daily challenge', '💰 ' + fmt(dailyBonus)]);
     rows.push(['Survivor XP', '+' + fmt(accXp)]);
     var html = rows.map(function (x) { return '<div class="res-row"><span>' + x[0] + '</span><b>' + x[1] + '</b></div>'; }).join('');
     gained.forEach(function (gl) {
@@ -419,21 +521,43 @@
     Object.keys(d.threats).forEach(function (id) {
       if (id !== threats.newThreat) html += '<div class="warn-box">⚠️ ' + ZN.MAP.byId[id].name + ' falls in ' + d.threats[id] + ' mission' + (d.threats[id] > 1 ? 's' : '') + '.</div>';
     });
+    var earned = Save.checkAchievements();
+    earned.forEach(function (a) {
+      html += '<div class="unlock">🏆 <b>Achievement: ' + a.name + '</b><br>' + Save.rewardText(a.reward) + '</div>';
+      toast('🏆 ' + a.name);
+    });
     Save.save();
+    $('res-ok').textContent = isDaily ? 'Done' : 'Back to Map';
     $('res-body').innerHTML = html;
     overlay('ov-results', true);
   }
 
   function leaveGame() {
+    var wasDaily = game && game.opts.daily;
     if (game) { game.destroy(); game = null; ZN.game = null; }
     overlay('ov-results', false); overlay('ov-pause', false); overlay('ov-levelup', false); overlay('ov-chest', false);
+    if (wasDaily) { show('daily'); return; }
     selected = Save.data.lastCounty || selected;
     show('map');
+  }
+
+  // ------------------------------------------------------------- backup
+  function openBackup() {
+    $('backup-out').value = Save.exportCode();
+    $('backup-in').value = ''; $('backup-msg').textContent = '';
+    overlay('ov-backup', true);
+  }
+  function copyText(text) {
+    try { if (window.AndroidBridge && window.AndroidBridge.copyText) { window.AndroidBridge.copyText(text); return true; } } catch (e) { /* fall through */ }
+    try { if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text); return true; } } catch (e) { /* fall through */ }
+    var ta = $('backup-out'); ta.focus(); ta.select();
+    try { return document.execCommand('copy'); } catch (e) { return false; }
   }
 
   // Android back button: returns true if handled
   ZN.onBack = function () {
     if (!$('ov-confirm').classList.contains('hidden')) { overlay('ov-confirm', false); return true; }
+    if (!$('ov-backup').classList.contains('hidden')) { overlay('ov-backup', false); return true; }
     if (current === 'game') {
       if (!$('ov-results').classList.contains('hidden')) { leaveGame(); return true; }
       if (!$('ov-pause').classList.contains('hidden')) { resumeGame(); return true; }
@@ -470,14 +594,39 @@
       });
     };
     $('res-ok').onclick = leaveGame;
+    var toggleMusic = function () { Save.data.music = Save.data.music === false; Save.save(); updateSoundButtons(); ZN.Music.refresh(); };
+    $('btn-music').onclick = toggleMusic; $('pause-music').onclick = toggleMusic;
+    $('btn-backup').onclick = openBackup;
+    $('backup-close').onclick = function () { overlay('ov-backup', false); };
+    $('backup-copy').onclick = function () { $('backup-msg').textContent = copyText($('backup-out').value) ? 'Copied to clipboard.' : 'Select the code and copy it manually.'; };
+    $('backup-share').onclick = function () {
+      var code = $('backup-out').value;
+      if (window.AndroidBridge && window.AndroidBridge.shareText) window.AndroidBridge.shareText(code);
+      else if (navigator.share) navigator.share({ title: 'Zombie Nation save', text: code }).catch(function () {});
+      else $('backup-msg').textContent = 'Sharing is not available here. Use Copy instead.';
+    };
+    $('backup-restore').onclick = function () {
+      var code = $('backup-in').value;
+      if (!code.trim()) { $('backup-msg').textContent = 'Paste a backup code first.'; return; }
+      confirmBox('Restore this save?', 'Your current progress on this device will be replaced.', function () {
+        var err = Save.importCode(code);
+        if (err) { $('backup-msg').textContent = err; return; }
+        overlay('ov-backup', false); selected = null; renderMap.scrolled = false;
+        show('title'); toast('✅ Save restored');
+      });
+    };
     $('btn-reset').onclick = function () {
       confirmBox('Reset save?', 'This wipes all liberated counties, coins, upgrades and unlocks.', function () {
         Save.reset(); selected = null; renderMap.scrolled = false; show('title');
       });
     };
-    document.addEventListener('visibilitychange', function () { if (document.hidden) ZN.onPause(); });
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) { ZN.onPause(); ZN.Audio.suspend(); } else ZN.Audio.unlock();
+    });
     window.addEventListener('resize', function () { if (current === 'map') sizeMap(); });
-    updateSoundButtons();
+    updateSoundButtons(); updateTitleBadges();
+    ZN.Music.play('menu');
+    if (Save.checkAchievements().length) Save.save();
     if (!Save.data.seenIntro) { Save.data.seenIntro = true; Save.save(); }
   }
 

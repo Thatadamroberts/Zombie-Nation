@@ -2,6 +2,9 @@ package com.zombienation.game;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Intent;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
@@ -54,7 +57,7 @@ public class MainActivity extends Activity {
 
         webView.setWebViewClient(new WebViewClient());
         webView.setWebChromeClient(new WebChromeClient());
-        webView.addJavascriptInterface(new SaveBridge(getSharedPreferences(PREFS, Context.MODE_PRIVATE), (Vibrator) getSystemService(Context.VIBRATOR_SERVICE)), "AndroidBridge");
+        webView.addJavascriptInterface(new SaveBridge(this, getSharedPreferences(PREFS, Context.MODE_PRIVATE), (Vibrator) getSystemService(Context.VIBRATOR_SERVICE)), "AndroidBridge");
 
         setContentView(webView);
         goImmersive();
@@ -133,12 +136,35 @@ public class MainActivity extends Activity {
 
     /** Exposed to JavaScript as window.AndroidBridge. */
     static class SaveBridge {
+        private final Activity activity;
         private final SharedPreferences prefs;
         private final Vibrator vibrator;
 
-        SaveBridge(SharedPreferences prefs, Vibrator vibrator) {
+        SaveBridge(Activity activity, SharedPreferences prefs, Vibrator vibrator) {
+            this.activity = activity;
             this.prefs = prefs;
             this.vibrator = vibrator;
+        }
+
+        /** Copies a backup code to the clipboard. */
+        @JavascriptInterface
+        public void copyText(String text) {
+            activity.runOnUiThread(() -> {
+                ClipboardManager cm = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
+                if (cm != null) cm.setPrimaryClip(ClipData.newPlainText("Zombie Nation save", text));
+            });
+        }
+
+        /** Opens the Android share sheet (email, Drive, notes...) with a backup code. */
+        @JavascriptInterface
+        public void shareText(String text) {
+            activity.runOnUiThread(() -> {
+                Intent send = new Intent(Intent.ACTION_SEND);
+                send.setType("text/plain");
+                send.putExtra(Intent.EXTRA_SUBJECT, "Zombie Nation save backup");
+                send.putExtra(Intent.EXTRA_TEXT, text);
+                activity.startActivity(Intent.createChooser(send, "Back up your save"));
+            });
         }
 
         /** pattern: "30" for a single buzz, or "60,40,120" for buzz/pause/buzz in milliseconds. */

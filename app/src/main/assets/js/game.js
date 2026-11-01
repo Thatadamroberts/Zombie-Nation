@@ -37,10 +37,14 @@
     this.bossKey = ZN.bossFor(opts.county);
     this.landmark = ZN.landmarkFor(opts.county);
     this.shake = 0; this.slowT = 0; this.timers = [];
+    this.mods = {}; var g0 = this;
+    (opts.mods || []).forEach(function (m) { g0.mods[m] = true; });
+    this.damageTaken = 0; this.evolvedIds = [];
     this.computeStats();
     this.player.hp = this.stat.maxHp;
     this.revivals = this.stat.revival;
-    this.addWeapon(this.char.start);
+    this.addWeapon(this.mods.pistolOnly ? 'pistol' : this.char.start);
+    this.pet = opts.pet ? { type: opts.pet, x: -30, y: 20, t: 1.5, mode: 'follow', vx: 0, vy: 0, dir: 1, anim: 0, hit: {} } : null;
 
     this.hudT = 0;
     this.resize();
@@ -53,14 +57,17 @@
   G.computeStats = function () {
     var sh = ZN.Save.data.shop, r = function (k) { return sh[k] || 0; };
     var s = { maxHp: 100, regen: 0, speed: 130, might: 1, armor: 0, magnet: 65, amount: 0, cooldown: 1,
-      area: 1, duration: 1, luck: 1, growth: 1, greed: 1, crit: 0.03, revival: 0 };
+      area: 1, duration: 1, luck: 1, growth: 1, greed: 1, crit: 0.03, revival: 0, block: 0 };
     s.might += 0.05 * r('might'); s.maxHp *= 1 + 0.1 * r('maxHp'); s.armor += r('armor');
     s.regen += 0.1 * r('regen'); s.speed *= 1 + 0.05 * r('speed'); s.cooldown *= 1 - 0.03 * r('cooldown');
     s.area *= 1 + 0.05 * r('area'); s.duration *= 1 + 0.1 * r('duration'); s.amount += r('amount');
     s.magnet *= 1 + 0.25 * r('magnet'); s.luck += 0.1 * r('luck'); s.growth += 0.05 * r('growth');
     s.greed += 0.1 * r('greed'); s.revival = r('revival');
     if (this.char) this.char.apply(s);
+    if (this.mods && this.mods.glass) { s.maxHp *= 0.5; s.might *= 1.5; }
     this.passives.forEach(function (p) { ZN.PASSIVES[p.id].apply(s, p.level); });
+    if (this.mods && this.mods.noHeal) s.regen = 0;
+    s.block = Math.min(s.block, 0.5);
     var old = this.stat;
     this.stat = s;
     if (old && s.maxHp > old.maxHp) this.player.hp += s.maxHp - old.maxHp;
@@ -91,6 +98,7 @@
     this.weapons.splice(idx, 0, { id: ev.into, level: 1, t: 0.2, s: {} });
     this.effects.push({ kind: 'ring', x: this.player.x, y: this.player.y, r: 10, maxR: 260, t: 0, T: 0.8, color: ZN.WEAPONS[ev.into].color });
     ZN.Audio.play('evolve');
+    this.evolvedIds.push(ev.into);
     this.juice(10, [60, 40, 120]); this.slowT = 1.0;
     this.banner(ZN.WEAPONS[ev.into].name.toUpperCase(), 'Weapon evolved!');
   };
@@ -112,7 +120,7 @@
       var d = ZN.WEAPONS[w.id];
       if (w.level < d.max) pool.push({ kind: 'upWeapon', id: w.id, icon: d.icon, color: d.color, title: d.name, tag: 'Level ' + (w.level + 1), desc: d.levels[w.level], wt: 10 });
     });
-    if (this.weapons.length < ZN.MAX_WEAPON_SLOTS) Object.keys(ZN.WEAPONS).forEach(function (id) {
+    if (this.weapons.length < ZN.MAX_WEAPON_SLOTS && !this.mods.pistolOnly) Object.keys(ZN.WEAPONS).forEach(function (id) {
       var d = ZN.WEAPONS[id];
       if (d.evolved || !unlocked[id] || consumed[id] || g.findWeapon(id)) return;
       pool.push({ kind: 'newWeapon', id: id, icon: d.icon, color: d.color, title: d.name, tag: 'NEW · ' + d.kind, desc: d.levels[0], wt: 8 });
@@ -289,7 +297,9 @@
     var e = { id: nextId++, type: type, def: def, x: x, y: y, hp: hp, maxHp: hp, r: def.r,
       spd: def.speed * rand(0.88, 1.12) * (1 + Math.min(this.tier, 20) * 0.01), atkT: 0, slowT: 0, freezeT: 0,
       burnT: 0, burnDps: 0, burnTick: 0, kbx: 0, kby: 0, flash: 0, hc: {}, shootT: rand(1.5, 3), anim: Math.random() * TAU,
-      dmg: def.dmg * this.dmgMult(), chargeT: 0, windT: 0, specT: 4, cdx: 0, cdy: 0, dead: false };
+      dmg: def.dmg * this.dmgMult(), chargeT: 0, windT: 0, specT: 4, cdx: 0, cdy: 0, dead: false, xpMul: 1 };
+    if (this.mods.fast) e.spd *= 1.5;
+    if (this.mods.giants && !def.boss) { e.r *= 1.35; e.hp *= 1.5; e.maxHp *= 1.5; e.xpMul = 2; }
     this.enemies.push(e);
     return e;
   };
@@ -298,6 +308,7 @@
     var w = this.waveIdx, prog = this.progress();
     var rate = (2.2 + 0.5 * w + 0.05 * this.tier) * (1 + 0.7 * prog);
     if (this.bossPhase) rate *= 0.35;
+    if (this.mods.horde) rate *= 1.6;
     var cap = Math.min(110 + 18 * w + 4 * this.tier, 320);
     this.spawnAcc += rate * dt;
     while (this.spawnAcc >= 1) {
@@ -326,7 +337,7 @@
       ZN.Audio.play('wave');
     } else {
       this.bossPhase = true;
-      var bossScale = (this.waves === 1 ? 0.8 : 1) + 0.15 * this.waves;
+      var bossScale = ((this.waves === 1 ? 0.8 : 1) + 0.15 * this.waves) * (this.mods.bigBoss ? 2 : 1);
       var bd = ZN.BOSSES[this.bossKey], base = ZN.ENEMIES.boss;
       var def = { name: bd.name, hp: base.hp * bd.hpMul, speed: bd.speed, dmg: Math.min(base.dmg, 16 + this.tier), r: bd.r, xp: base.xp, color: bd.color, skin: bd.skin,
         boss: true, shape: bd.shape, abilities: bd.abilities, minion: bd.minion, shot: bd.shot, flyer: bd.flyer };
@@ -334,6 +345,7 @@
       this.banner(bd.name.toUpperCase(), 'Slay the horde boss to liberate ' + this.county.name);
       this.juice(12, 160);
       ZN.Audio.play('boss');
+      ZN.Music.play('boss');
     }
   };
 
@@ -410,9 +422,9 @@
     if (e.dead) return;
     e.dead = true; this.kills++;
     var def = e.def;
-    this.dropGem(e.x, e.y, def.xp * (1 + this.waveIdx * 0.08));
+    this.dropGem(e.x, e.y, def.xp * (1 + this.waveIdx * 0.08) * e.xpMul);
     if (Math.random() < 0.035 * this.stat.luck || def.elite) this.pickups.push({ type: 'coin', x: e.x + rand(-8, 8), y: e.y + rand(-8, 8), v: def.elite ? 10 : (1 + (Math.random() * 3 | 0)) });
-    if (Math.random() < 0.004 * this.stat.luck) this.pickups.push({ type: 'heal', x: e.x, y: e.y });
+    if (!this.mods.noHeal && Math.random() < 0.004 * this.stat.luck) this.pickups.push({ type: 'heal', x: e.x, y: e.y });
     if (Math.random() < 0.0015 * this.stat.luck) this.pickups.push({ type: 'magnet', x: e.x, y: e.y });
     if (def.elite) this.pickups.push({ type: 'chest', x: e.x, y: e.y });
     if (def.explodes) {
@@ -436,7 +448,12 @@
   G.hurtPlayer = function (dmg) {
     var p = this.player;
     if (p.iframes > 0 || this.victory) return;
+    if (this.stat.block > 0 && Math.random() < this.stat.block) {
+      if (this.texts.length < 70) this.texts.push({ x: p.x, y: p.y - 24, t: 0, v: 'BLOCK', color: '#ffd23a' });
+      return;
+    }
     dmg = Math.max(1, dmg - this.stat.armor);
+    this.damageTaken += dmg;
     p.hp -= dmg; p.hurtT = 0.2;
     this.juice(3.5, 22);
     ZN.Audio.play('hurt', 150);
@@ -474,7 +491,8 @@
     this.ended = true;
     if (this.raf) cancelAnimationFrame(this.raf);
     this.opts.onEnd({ win: this.victory, kills: this.kills, coins: this.runCoins, xp: Math.round(this.runXp),
-      level: this.player.level, time: this.time, wavesDone: this.victory ? this.waves : this.waveIdx });
+      level: this.player.level, time: this.time, wavesDone: this.victory ? this.waves : this.waveIdx,
+      damageTaken: this.damageTaken, evolved: this.evolvedIds.slice(), bossKey: this.bossKey });
   };
 
   // ----------------------------------------------------------------- update
@@ -523,6 +541,7 @@
       }
     }
     ZN.runGameTimers(this);
+    if (this.pet && !this.victory) this.updatePet(dt);
     this.updateProjectiles(dt);
     this.updatePools(dt);
     this.updatePickups(dt);
@@ -601,6 +620,73 @@
 
       if (d < e.r + p.r && e.atkT <= 0 && e.freezeT <= 0 && !e.submerged) { e.atkT = e.def.boss ? 1 : 0.7; g.hurtPlayer(e.dmg); }
     }
+  };
+
+  // ---------------------------------------------------------------- pets
+  G.updatePet = function (dt) {
+    var pet = this.pet, p = this.player, g = this;
+    pet.anim += dt * 8; pet.t -= dt;
+    var tx = p.x - p.fx * 34, ty = p.y - p.fy * 34 + 10, sp = this.stat.speed * 1.25;
+    if (pet.type === 'dragon') {
+      tx = p.x + Math.cos(this.time * 1.4) * 46; ty = p.y - 36 + Math.sin(this.time * 2.8) * 10;
+      if (pet.t <= 0) {
+        var tgt = this.nearestEnemy(pet.x, pet.y, 230);
+        if (tgt) {
+          pet.t = 2.2 * this.stat.cooldown;
+          var base = Math.atan2(tgt.y - pet.y, tgt.x - pet.x);
+          for (var i = 0; i < 9; i++) {
+            var a = base + (Math.random() - 0.5) * 0.6, v = 250;
+            this.projectiles.push({ x: pet.x, y: pet.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: 8, dmg: 9, pierce: 5, life: 0.75, maxLife: 0.75,
+              hit: {}, kind: 'flame', burn: 6, silent: true, grow: 34, drag: 0.5 });
+          }
+          ZN.Audio.play('boom', 200);
+        }
+      }
+    } else if (pet.type === 'corgi') {
+      if (pet.mode === 'fetch' && (!pet.gem || pet.gem.mag || this.pickups.indexOf(pet.gem) < 0)) pet.mode = 'follow';
+      if (pet.mode === 'follow' && pet.t <= 0) {
+        pet.t = 0.4;
+        var best = null, bd = 260 * 260;
+        for (var k = 0; k < this.pickups.length; k++) {
+          var gm = this.pickups[k];
+          if (gm.type !== 'gem' || gm.mag) continue;
+          var dd = (gm.x - p.x) * (gm.x - p.x) + (gm.y - p.y) * (gm.y - p.y);
+          if (dd < bd) { bd = dd; best = gm; }
+        }
+        if (best) { pet.mode = 'fetch'; pet.gem = best; }
+      }
+      if (pet.mode === 'fetch') {
+        tx = pet.gem.x; ty = pet.gem.y; sp = this.stat.speed * 2;
+        if (Math.abs(tx - pet.x) < 12 && Math.abs(ty - pet.y) < 12) { pet.gem.mag = true; pet.mode = 'follow'; }
+      }
+      if (pet.biteT === undefined || pet.biteT <= 0) {
+        pet.biteT = 0.6;
+        this.queryEnemies(pet.x, pet.y, 16, function (e) { g.damage(e, 12, { kb: 40, kx: e.x - pet.x, ky: e.y - pet.y, silent: true }); });
+      } else pet.biteT -= dt;
+    } else if (pet.type === 'cow') {
+      if (pet.mode === 'charge') {
+        pet.chargeT -= dt;
+        tx = pet.x + pet.cx * 100; ty = pet.y + pet.cy * 100; sp = 520;
+        this.queryEnemies(pet.x, pet.y, 18, function (e) {
+          if (pet.hit[e.id]) return;
+          pet.hit[e.id] = 1;
+          g.damage(e, 32, { kb: 240, kx: pet.cx, ky: pet.cy, silent: true });
+        });
+        if (pet.chargeT <= 0) { pet.mode = 'follow'; pet.t = 3.8 * this.stat.cooldown; }
+      } else if (pet.t <= 0) {
+        var tg = this.nearestEnemy(p.x, p.y, 260);
+        if (tg) {
+          var cx = tg.x - pet.x, cy = tg.y - pet.y, cl = Math.sqrt(cx * cx + cy * cy) || 1;
+          pet.mode = 'charge'; pet.chargeT = 0.75; pet.cx = cx / cl; pet.cy = cy / cl; pet.hit = {};
+          ZN.Audio.play('hurt', 300);
+        } else pet.t = 0.5;
+      }
+    }
+    var dx = tx - pet.x, dy = ty - pet.y, dl = Math.sqrt(dx * dx + dy * dy);
+    if (dl > 600) { pet.x = p.x; pet.y = p.y; return; }
+    var mv = Math.min(dl, sp * dt * (pet.mode === 'follow' ? Math.min(1, dl / 40 + 0.2) : 1));
+    if (dl > 0.5) { pet.x += dx / dl * mv; pet.y += dy / dl * mv; if (Math.abs(dx) > 1) pet.dir = dx > 0 ? 1 : -1; }
+    pet.moving = mv > 0.3;
   };
 
   G.bossAI = function (e, dt, ux, uy, d, sp) {
@@ -782,7 +868,9 @@
       var e = this.enemies[i];
       if (e.x > vx0 && e.x < vx1 && e.y > vy0 && e.y < vy1) this.drawEnemy(e);
     }
+    if (this.pet && this.pet.y <= p.y) ZN.drawPet(this, ctx, this.pet);
     this.drawPlayer();
+    if (this.pet && this.pet.y > p.y) ZN.drawPet(this, ctx, this.pet);
     for (i = 0; i < this.projectiles.length; i++) this.drawProjectile(this.projectiles[i]);
     ctx.fillStyle = '#9be03a';
     for (i = 0; i < this.enemyShots.length; i++) { var s = this.enemyShots[i]; ctx.fillStyle = s.color || '#9be03a'; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, TAU); ctx.fill(); }
@@ -792,7 +880,14 @@
 
     // screen space
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    if (this.boss && !this.boss.dead) this.drawBossArrow();
+    if (this.mods.fog) {
+      var cxs = this.cssW / 2, cys = this.cssH / 2, fr = 175 * this.scale;
+      var fg = ctx.createRadialGradient(cxs, cys, fr * 0.45, cxs, cys, fr);
+      fg.addColorStop(0, 'rgba(150,150,140,0)'); fg.addColorStop(1, 'rgba(150,150,140,0.96)');
+      ctx.fillStyle = fg; ctx.fillRect(0, 0, this.cssW, this.cssH);
+    }
+    this.drawMarkers();
+    if (!this.mods.fog) this.drawMinimap();
     if (this.joy) {
       ctx.globalAlpha = 0.35; ctx.fillStyle = '#ffffff';
       ctx.beginPath(); ctx.arc(this.joy.ox, this.joy.oy, 46, 0, TAU); ctx.fill();
@@ -922,6 +1017,15 @@
       return;
     }
     if (def.flyer || (def.shape && def.shape !== 'zombie')) { ZN.drawSpecial(this, ctx, e); this.drawHpBar(e); return; }
+    if (!def.boss && ZN.Sprites.has(e.type)) {
+      ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.9, r * 0.9, r * 0.35, 0, 0, TAU); ctx.fill();
+      ZN.Sprites.enemy(ctx, e, this.time);
+      if (e.freezeT > 0) { ctx.fillStyle = 'rgba(160,220,255,0.45)'; ctx.beginPath(); ctx.arc(e.x, e.y, r + 3, 0, TAU); ctx.fill(); }
+      else if (e.slowT > 0) { ctx.strokeStyle = 'rgba(140,210,255,0.8)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.9, r, r * 0.4, 0, 0, TAU); ctx.stroke(); }
+      if (e.burnT > 0) { ctx.fillStyle = 'rgba(255,' + (100 + (Math.random() * 80 | 0)) + ',0,0.75)'; ctx.beginPath(); ctx.arc(e.x + rand(-r, r) * 0.5, e.y - r * 0.4, r * 0.3, 0, TAU); ctx.fill(); }
+      this.drawHpBar(e);
+      return;
+    }
     var cos = Math.cos(dir), sin = Math.sin(dir), wob = Math.sin(e.anim) * 0.15;
     ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.8, r, r * 0.4, 0, 0, TAU); ctx.fill();
     if (e.windT > 0) { ctx.strokeStyle = 'rgba(255,60,60,0.8)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.x + e.cdx * 300, e.y + e.cdy * 300); ctx.stroke(); }
@@ -964,20 +1068,8 @@
   G.drawPlayer = function () {
     var ctx = this.ctx, p = this.player, x = p.x, y = p.y;
     if (p.iframes > 0 && Math.floor(this.time * 20) % 2) return;
-    var bob = p.moving ? Math.sin(p.walk) * 1.5 : 0;
-    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(x, y + 12, 12, 5, 0, 0, TAU); ctx.fill();
-    // legs
-    ctx.fillStyle = '#2b2f3a';
-    ctx.fillRect(x - 6, y + 4 + (p.moving ? Math.sin(p.walk) * 3 : 0), 5, 9);
-    ctx.fillRect(x + 1, y + 4 - (p.moving ? Math.sin(p.walk) * 3 : 0), 5, 9);
-    // coat
-    var ch = this.char;
-    ctx.fillStyle = ch.coat; ctx.beginPath(); ctx.ellipse(x, y + bob, 10, 11, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = ch.id === 'beefeater' ? '#ffd23a' : '#c8102e'; ctx.fillRect(x - 10, y - 2 + bob, 20, 3);
-    // head
-    var hx = x + p.fx * 2, hy = y - 12 + bob;
-    ctx.fillStyle = '#f1c9a0'; ctx.beginPath(); ctx.arc(hx, hy, 7, 0, TAU); ctx.fill();
-    ZN.drawHat(ctx, ch, hx + p.fx, hy);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(x, y + 12, 11, 4.5, 0, 0, TAU); ctx.fill();
+    ZN.Sprites.player(ctx, this.char, p, x, y, this.time);
     // facing marker
     ctx.fillStyle = 'rgba(255,255,255,0.5)';
     ctx.beginPath(); ctx.arc(x + p.fx * 22, y + p.fy * 22, 2.5, 0, TAU); ctx.fill();
@@ -1080,13 +1172,55 @@
     ctx.globalAlpha = 1;
   };
 
-  G.drawBossArrow = function () {
-    var b = this.boss, p = this.player, dx = b.x - p.x, dy = b.y - p.y;
-    if (Math.abs(dx) < this.viewW / 2 - 20 && Math.abs(dy) < this.viewH / 2 - 20) return;
-    var ctx = this.ctx, a = Math.atan2(dy, dx), cx = this.cssW / 2, cy = this.cssH / 2;
-    var rx = cx - 30, ry = cy - 90, t = Math.min(rx / Math.abs(Math.cos(a) || 1e-6), ry / Math.abs(Math.sin(a) || 1e-6));
-    ctx.save(); ctx.translate(cx + Math.cos(a) * t, cy + Math.sin(a) * t); ctx.rotate(a);
-    ctx.fillStyle = '#ff3b3b'; ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-8, -10); ctx.lineTo(-8, 10); ctx.fill();
+  // Off-screen markers for the boss, elites and treasure chests
+  G.drawMarkers = function () {
+    var g = this, p = this.player, list = [];
+    if (this.boss && !this.boss.dead && !this.boss.submerged) list.push([this.boss, '#ff3b3b', 15]);
+    for (var i = 0; i < this.enemies.length; i++) { var e = this.enemies[i]; if (e.def.elite && !e.dead) list.push([e, '#d07aff', 11]); }
+    for (var j = 0; j < this.pickups.length; j++) if (this.pickups[j].type === 'chest') list.push([this.pickups[j], '#ffd23a', 11]);
+    var ctx = this.ctx, cx = this.cssW / 2, cy = this.cssH / 2, top = 120, bottom = 30;
+    list.forEach(function (it) {
+      var t = it[0], dx = t.x - p.x, dy = t.y - p.y;
+      if (Math.abs(dx) < g.viewW / 2 - 16 && Math.abs(dy) < g.viewH / 2 - 16) return;
+      var a = Math.atan2(dy, dx), rx = cx - 24, ryTop = cy - top, ryBot = cy - bottom;
+      var ry = Math.sin(a) < 0 ? ryTop : ryBot;
+      var k = Math.min(rx / Math.abs(Math.cos(a) || 1e-6), ry / Math.abs(Math.sin(a) || 1e-6));
+      var mx = cx + Math.cos(a) * k, my = cy + Math.sin(a) * k, s = it[2];
+      ctx.save(); ctx.translate(mx, my); ctx.rotate(a);
+      ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.moveTo(s + 2, 0); ctx.lineTo(-s * 0.6, -s * 0.8); ctx.lineTo(-s * 0.6, s * 0.8); ctx.fill();
+      ctx.fillStyle = it[1]; ctx.beginPath(); ctx.moveTo(s, 0); ctx.lineTo(-s * 0.5, -s * 0.65); ctx.lineTo(-s * 0.5, s * 0.65); ctx.fill();
+      ctx.restore();
+    });
+  };
+
+  G.drawMinimap = function () {
+    var ctx = this.ctx, R = 44, cx = this.cssW - R - 12, cy = this.cssH - R - 14, range = 650, k = R / range, p = this.player;
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = 'rgba(10,14,18,0.7)'; ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.clip();
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
+    ctx.strokeRect(cx - this.viewW / 2 * k, cy - this.viewH / 2 * k, this.viewW * k, this.viewH * k);
+    var lx = cx + (0 - p.x) * k, ly = cy + (-250 - p.y) * k;
+    ctx.fillStyle = '#8ab4d8'; ctx.fillRect(lx - 3, ly - 3, 6, 6);
+    ctx.fillStyle = '#e04848';
+    for (var i = 0; i < this.enemies.length; i++) {
+      var e = this.enemies[i];
+      if (e.def.boss || e.def.elite || e.submerged) continue;
+      var ex = (e.x - p.x) * k, ey = (e.y - p.y) * k;
+      if (ex * ex + ey * ey < R * R) ctx.fillRect(cx + ex - 1, cy + ey - 1, 2, 2);
+    }
+    for (var j = 0; j < this.pickups.length; j++) if (this.pickups[j].type === 'chest') {
+      ctx.fillStyle = '#ffd23a'; ctx.beginPath(); ctx.arc(cx + (this.pickups[j].x - p.x) * k, cy + (this.pickups[j].y - p.y) * k, 3.5, 0, TAU); ctx.fill();
+    }
+    for (var m = 0; m < this.enemies.length; m++) {
+      var b = this.enemies[m];
+      if (!(b.def.boss || b.def.elite) || b.submerged) continue;
+      ctx.fillStyle = b.def.boss ? '#ff3b3b' : '#d07aff';
+      ctx.beginPath(); ctx.arc(cx + (b.x - p.x) * k, cy + (b.y - p.y) * k, b.def.boss ? 5 : 3.5, 0, TAU); ctx.fill();
+    }
     ctx.restore();
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.stroke();
+    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(cx, cy, 3, 0, TAU); ctx.fill();
   };
 })(window.ZN);

@@ -473,3 +473,89 @@ ZN.COUNTY_LANDMARK = { london: 'bigben', wiltshire: 'stonehenge', cornwall: 'lig
   kent: 'cliffs', esussex: 'cliffs', norfolk: 'windmill', cambs: 'windmill', manchester: 'pub', westmids: 'pub' };
 ZN.bossFor = function (c) { return ZN.COUNTY_BOSS[c.id] || ZN.REGION_BOSS[c.region] || 'abomination'; };
 ZN.landmarkFor = function (c) { return ZN.COUNTY_LANDMARK[c.id] || ZN.REGION_LANDMARK[c.region] || 'church'; };
+
+// ---------------------------------------------------------------------------
+// Nations (for achievements)
+// ---------------------------------------------------------------------------
+ZN.nationOf = function (c) {
+  if (c.land === 'ni') return 'ni';
+  if (c.region === 'wales') return 'wales';
+  if (c.region === 'scot' || c.region === 'high' || c.id === 'lanark') return 'scotland';
+  return 'england';
+};
+
+// ---------------------------------------------------------------------------
+// Companions (pets) unlocked by achievements
+// ---------------------------------------------------------------------------
+ZN.PETS = {
+  dragon: { name: 'Y Ddraig Goch', icon: '🐉', desc: 'The red dragon of Wales flies beside you, breathing fire on the horde.' },
+  corgi:  { name: 'Royal Corgi',   icon: '🐕', desc: 'Scampers about fetching XP gems and nipping at zombie ankles.' },
+  cow:    { name: 'Highland Coo',  icon: '🐂', desc: 'Every few seconds it charges through the horde, horns first.' }
+};
+
+// ---------------------------------------------------------------------------
+// Achievements. check(s) gets { save, stats, run } and returns true when earned.
+// reward: { coins } | { character } | { pet } | { item }
+// ---------------------------------------------------------------------------
+function nationDone(save, nation) {
+  return ZN.COUNTIES.every(function (c) { return ZN.nationOf(c) !== nation || save.cleared[c.id]; });
+}
+ZN.ACHIEVEMENTS = [
+  { id: 'first',     icon: '🏁', name: 'First Foothold',      desc: 'Liberate your first county.', reward: { coins: 50 },
+    check: function (x) { return Object.keys(x.save.cleared).length >= 1; } },
+  { id: 'ten',       icon: '🗺️', name: 'Pushing Back',        desc: 'Hold 10 liberated counties at once.', reward: { coins: 200 },
+    check: function (x) { return Object.keys(x.save.cleared).length >= 10; } },
+  { id: 'kills1k',   icon: '💀', name: 'Zombie Hunter',       desc: 'Slay 1,000 zombies.', reward: { coins: 100 },
+    check: function (x) { return x.stats.kills >= 1000; } },
+  { id: 'evolve',    icon: '🧬', name: 'Evolution',           desc: 'Evolve any weapon.', reward: { coins: 100 },
+    check: function (x) { return Object.keys(x.stats.evolved).length >= 1; } },
+  { id: 'daily',     icon: '📅', name: 'Daily Grind',         desc: 'Complete a daily challenge.', reward: { coins: 150 },
+    check: function (x) { return x.stats.dailies >= 1; } },
+  { id: 'southeast', icon: '👑', name: 'God Save the South',  desc: 'Liberate Greater London and all of the South East.', reward: { pet: 'corgi' },
+    check: function (x) { return ZN.COUNTIES.every(function (c) { return (c.region !== 'se' && c.id !== 'london') || x.save.cleared[c.id]; }); } },
+  { id: 'wales',     icon: '\uD83C\uDFF4\uDB40\uDC67\uDB40\uDC62\uDB40\uDC77\uDB40\uDC6C\uDB40\uDC73\uDB40\uDC7F', name: 'Cymru am Byth',       desc: 'Liberate all of Wales.', reward: { pet: 'dragon' },
+    check: function (x) { return nationDone(x.save, 'wales'); } },
+  { id: 'scotland',  icon: '\uD83C\uDFF4\uDB40\uDC67\uDB40\uDC62\uDB40\uDC73\uDB40\uDC63\uDB40\uDC74\uDB40\uDC7F', name: 'Flower of Scotland',  desc: 'Liberate all of Scotland.', reward: { pet: 'cow' },
+    check: function (x) { return nationDone(x.save, 'scotland'); } },
+  { id: 'ni',        icon: '🌉', name: 'Across the Water',    desc: 'Liberate all of Northern Ireland.', reward: { coins: 400 },
+    check: function (x) { return nationDone(x.save, 'ni'); } },
+  { id: 'untouch',   icon: '☂️', name: 'Untouchable',         desc: 'Liberate a county without taking any damage.', reward: { item: 'goldenBrolly' },
+    check: function (x) { return x.stats.noHitWins >= 1; } },
+  { id: 'kills10k',  icon: '👵', name: 'Ten Thousand Dead',   desc: 'Slay 10,000 zombies.', reward: { character: 'nana' },
+    check: function (x) { return x.stats.kills >= 10000; } },
+  { id: 'sword',     icon: '✨', name: 'Excalibur, Basically', desc: 'Forge the Sword of Light.', reward: { coins: 300 },
+    check: function (x) { return !!x.stats.evolved.swordOfLight; } },
+  { id: 'defender',  icon: '🛡️', name: 'Hold the Line',       desc: 'Repel 3 counter-attacks.', reward: { coins: 250 },
+    check: function (x) { return x.stats.defended >= 3; } },
+  { id: 'level50',   icon: '⭐', name: 'Unstoppable',         desc: 'Reach level 50 in a single mission.', reward: { coins: 250 },
+    check: function (x) { return x.stats.bestLevel >= 50; } },
+  { id: 'bosses',    icon: '🐲', name: 'Monster Hunter',      desc: 'Defeat every regional horde boss.', reward: { coins: 800 },
+    check: function (x) { return Object.keys(ZN.BOSSES).every(function (k) { return x.stats.bosses[k]; }); } },
+  { id: 'collector', icon: '🏆', name: 'Arms Collector',      desc: 'Evolve 8 different weapons.', reward: { coins: 600 },
+    check: function (x) { return Object.keys(x.stats.evolved).length >= 8; } },
+  { id: 'uk',        icon: '🇬🇧', name: 'Rule Britannia',     desc: 'Liberate every county in the UK at once.', reward: { coins: 5000 },
+    check: function (x) { return Object.keys(x.save.cleared).length >= ZN.COUNTIES.length; } }
+];
+
+// Achievement-only rewards
+ZN.PASSIVES.goldenBrolly = { name: 'Golden Brolly', icon: '🌂', desc: '+1 armour and 6% chance to block a hit per level',
+  apply: function (s, l) { s.armor += l; s.block += 0.06 * l; } };
+ZN.CHARACTERS.push({ id: 'nana', name: 'Nana Doris', title: 'Retired Air-Raid Warden', icon: '👵', cost: 0, achievement: 'kills10k',
+  start: 'lightning', perks: '+20% XP, 1 extra revive, +10% damage.', coat: '#7a5a8a', hat: 'headscarf', hatColor: '#c84a6a',
+  apply: function (s) { s.growth += 0.2; s.revival += 1; s.might += 0.1; } });
+
+// ---------------------------------------------------------------------------
+// Daily challenge modifiers
+// ---------------------------------------------------------------------------
+ZN.DAILY_MODS = {
+  fast:       { name: 'Sprinters',   icon: '🏃', desc: 'Zombies move 50% faster.' },
+  glass:      { name: 'Glass Cannon',icon: '🍷', desc: 'Half max HP, +50% damage.' },
+  pistolOnly: { name: 'Pistol Only', icon: '🔫', desc: 'You start with the pistol and find no other weapons.' },
+  fog:        { name: 'Pea Souper',  icon: '🌫️', desc: 'Thick London fog: you can barely see.' },
+  horde:      { name: 'The Horde',   icon: '🧟', desc: '60% more zombies.' },
+  bigBoss:    { name: 'Big Boss',    icon: '👹', desc: 'The horde boss has double HP.' },
+  noHeal:     { name: 'Rationing',   icon: '🥫', desc: 'No regeneration and no healing pickups.' },
+  giants:     { name: 'Giants',      icon: '🦣', desc: 'Bigger, tougher zombies that drop double XP.' }
+};
+ZN.DAILY_WAVES = 5;
+ZN.DAILY_REWARD = 300;

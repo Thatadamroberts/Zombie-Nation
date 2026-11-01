@@ -12,6 +12,12 @@ A Vampire Survivors-style Android game set across a zombie-overrun United Kingdo
 - **Landmarks** in the battlefield: Big Ben, Stonehenge, a Cornish lighthouse, the Angel of the North, the Giant's Causeway, a Highland loch, castles, windmills, pubs, pitheads and the white cliffs.
 - **Survivors** (bought with coins), each with a starting weapon and perks: Tommy (pistol), Bert the Beefeater (halberd), Rhiannon the Welsh Shepherd (molotov), Big Rab the Glaswegian Bouncer (cheese aura), Jory the Cornish Fisherman (harpoon), Morag the Highland Piper (bagpipes).
 - **Counter-attacks**: after a mission, the horde may attack a liberated county on the frontier. Win a mission there within 3 missions or it falls back to the zombies.
+- **Achievements**: 17 achievements that pay coins or unlock exclusive content: a Welsh dragon companion (all of Wales), a Highland coo (all of Scotland), a Royal Corgi (London and the South East), a new survivor Nana Doris (10,000 kills) and the Golden Brolly item (a no-damage win).
+- **Companions**: the dragon breathes fire, the corgi fetches XP gems and nips ankles, and the Highland coo charges through the horde.
+- **Daily challenge**: a new county every day with two twists (fog, sprinters, glass cannon, pistol only, giants...). Win it for 300 coins once a day.
+- **Pixel-art sprites** for every survivor, zombie and companion, with walk cycles, plus **chiptune music** (menu, battle and boss tracks) generated live with WebAudio.
+- **Minimap and off-screen markers** for the boss, elites and treasure chests.
+- **Backup / Restore**: export your save as a code (copy it or share it to email or Drive) and restore it on another device.
 - **Feel**: screen shake, slow-motion on evolutions and boss kills, and vibration on hits, level-ups and big moments. Each can be toggled.
 - **In-mission levelling**: collect XP gems, then pick new weapons, passives or upgrades. You get 6 weapon slots and 6 passive slots.
 - **Weapons**: Service Pistol, Ice Sword, Fire Sword, Electric Sword, Crossbow, Molotov, Stinking Bishop (cheese aura), Hubcaps (orbit), Lightning Rod, Flamethrower, Cricket Bat, Bagpipes, Beefeater Halberd, Harpoon Gun.
@@ -48,7 +54,9 @@ app/src/main/assets/            the game (HTML5 canvas, plain JS, no build step)
   js/map.js      UK map: Voronoi county shapes clipped to the coastline, adjacency
   js/game.js     mission engine (waves, zombies, pickups, rendering)
   js/weapons.js  weapon behaviours
-  js/art.js      landmarks, regional bosses, birds, survivor hats
+  js/art.js      landmarks, regional bosses, birds
+  js/sprites.js  pixel-art sprite grids (survivors, zombies, companions)
+  js/audio.js    sound effects, chiptune music sequencer, vibration
   js/ui.js       menus, map, survivors, shop, armoury, HUD
   js/save.js     save data (SharedPreferences on Android, localStorage in a browser)
 app/src/main/java/.../MainActivity.java   full-screen WebView host with no dependencies
