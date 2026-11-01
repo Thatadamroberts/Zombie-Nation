@@ -15,7 +15,8 @@
   function shoot(g, ang, o) {
     g.projectiles.push({ x: g.player.x, y: g.player.y, vx: Math.cos(ang) * o.speed, vy: Math.sin(ang) * o.speed,
       r: o.r, dmg: o.dmg, pierce: o.pierce, life: o.life, hit: {}, kind: o.kind, color: o.color, kb: o.kb || 0,
-      burn: o.burn, slow: o.slow, silent: o.silent, grow: o.grow, drag: o.drag, maxLife: o.life });
+      burn: o.burn, slow: o.slow, freeze: o.freeze, silent: o.silent, grow: o.grow, drag: o.drag, maxLife: o.life,
+      speed: o.speed, boomerang: o.boomerang, chain: o.chain });
   }
 
   // Melee arc. Returns enemies hit.
@@ -45,12 +46,14 @@
     }
   }
 
+  ZN.chainLightning = chain;
+
   // Hits enemies within w of the segment (x1,y1)-(x2,y2)
   function beam(g, x1, y1, x2, y2, width, fn) {
     var dx = x2 - x1, dy = y2 - y1, L2 = dx * dx + dy * dy;
     for (var i = 0; i < g.enemies.length; i++) {
       var e = g.enemies[i];
-      if (e.dead) continue;
+      if (e.dead || e.submerged) continue;
       var t = U.clamp(((e.x - x1) * dx + (e.y - y1) * dy) / L2, 0, 1);
       var px = x1 + dx * t - e.x, py = y1 + dy * t - e.y, rr = width + e.r;
       if (px * px + py * py <= rr * rr) fn(e);
@@ -101,7 +104,7 @@
       g.effects.push({ kind: 'bottle', sx: p.x, sy: p.y, tx: tx, ty: ty, t: 0, T: T });
       (function (tx, ty, delay) {
         setTimeoutGame(g, delay, function () {
-          g.pools.push({ x: tx, y: ty, r: R, life: life, tick: 0.35, tickT: 0, dmg: s.dmg, burn: s.burn || 0, color: color });
+          g.pools.push({ x: tx, y: ty, r: R, life: life, tick: 0.35, tickT: 0, dmg: s.dmg, burn: s.burn || 0, slow: s.slow, freeze: s.freeze, color: color });
           ZN.Audio.play('boom', 120);
         });
       })(tx, ty, T);
@@ -254,6 +257,73 @@
       lightning(g, s, s.amount + g.stat.amount, s.chains);
     },
     flamethrower: function (g, w, s, dt) { flames(g, w, s, dt, false); },
+    cricketBat: function (g, w, s, dt) {
+      if (!ready(g, w, s.cd, dt)) return;
+      var base = facing(g), n = s.dirs + g.stat.amount;
+      for (var i = 0; i < n; i++) slash(g, base + i * TAU / n, s.radius * g.stat.area, 2.6, s.dmg, { kb: s.kb, color: '#ffe0a0' }, 'rgba(217,183,122,0.6)');
+      if (g.lastBatShake === undefined || g.time - g.lastBatShake > 0.5) { g.lastBatShake = g.time; g.shake = Math.max(g.shake, 2); }
+      ZN.Audio.play('slash', 100);
+    },
+    sixHitter: function (g, w, s, dt) {
+      if (!ready(g, w, s.cd, dt)) return;
+      var n = s.amount + g.stat.amount, off = facing(g);
+      for (var i = 0; i < n; i++) shoot(g, off + i * TAU / n, { speed: 330, r: 14 * g.stat.area, dmg: s.dmg, pierce: 9999, life: 1.6 * g.stat.duration, kind: 'bat', kb: 140, boomerang: true, silent: true });
+      ZN.Audio.play('slash', 100);
+    },
+    bagpipes: function (g, w, s, dt) {
+      if (!ready(g, w, s.cd, dt)) return;
+      var p = g.player, tgt = g.nearestEnemy(p.x, p.y, s.radius * g.stat.area + 30);
+      var ang = tgt ? Math.atan2(tgt.y - p.y, tgt.x - p.x) : facing(g);
+      slash(g, ang, s.radius * g.stat.area, s.arc, s.dmg, { freeze: s.stun, kb: 30, color: '#e0c8ff', silent: true }, 'rgba(199,160,255,0.35)');
+      for (var k = 1; k <= 3; k++) g.effects.push({ kind: 'ring', x: p.x + Math.cos(ang) * 30 * k, y: p.y + Math.sin(ang) * 30 * k, r: 4, maxR: 14 + k * 8, t: -k * 0.06, T: 0.4, color: '#c7a0ff' });
+      ZN.Audio.play('zap', 120);
+    },
+    highlandLament: function (g, w, s, dt) {
+      if (!ready(g, w, s.cd, dt)) return;
+      var p = g.player, R = s.radius * g.stat.area;
+      g.queryEnemies(p.x, p.y, R, function (e) { g.damage(e, s.dmg, { freeze: s.stun, kb: 60, silent: true, color: '#e0c8ff' }); });
+      g.effects.push({ kind: 'ring', x: p.x, y: p.y, r: 20, maxR: R, t: 0, T: 0.5, color: '#d8b8ff' });
+      g.effects.push({ kind: 'ring', x: p.x, y: p.y, r: 10, maxR: R * 0.7, t: 0, T: 0.4, color: '#ffffff' });
+      ZN.Audio.play('zap', 120);
+    },
+    halberd: function (g, w, s, dt) {
+      if (!ready(g, w, s.cd, dt)) return;
+      var base = facing(g), n = s.dirs + g.stat.amount;
+      for (var i = 0; i < n; i++) slash(g, base + i * TAU / n, s.radius * g.stat.area, s.arc, s.dmg, { kb: 90, color: '#ffe08a' }, 'rgba(224,192,96,0.55)');
+      ZN.Audio.play('slash', 100);
+    },
+    yeomansWrath: function (g, w, s, dt) {
+      if (!ready(g, w, s.cd, dt)) return;
+      var R = s.radius * g.stat.area, base = facing(g);
+      for (var i = 0; i < 4; i++) slash(g, base + i * TAU / 4, R, TAU / 4 + 0.05, s.dmg, { kb: 140, color: '#ffe08a', silent: i > 0 }, 'rgba(255,204,51,0.45)');
+      g.effects.push({ kind: 'ring', x: g.player.x, y: g.player.y, r: 20, maxR: R, t: 0, T: 0.3, color: '#ffcc33' });
+      ZN.Audio.play('slash', 100);
+    },
+    harpoon: function (g, w, s, dt) {
+      if (w.t > 0) { w.t -= dt; return; }
+      var p = g.player, tgt = g.nearestEnemy(p.x, p.y, 450);
+      if (!tgt) return;
+      w.t = s.cd * g.stat.cooldown;
+      var n = s.amount + g.stat.amount, base = Math.atan2(tgt.y - p.y, tgt.x - p.x);
+      for (var i = 0; i < n; i++) shoot(g, base + (i - (n - 1) / 2) * 0.16, { speed: 520, r: 6, dmg: s.dmg, pierce: s.pierce, life: 1.1, kind: 'harpoon', color: '#cfd6de', kb: 70 });
+      ZN.Audio.play('shoot', 90);
+    },
+    krakensReach: function (g, w, s, dt) {
+      if (!ready(g, w, s.cd, dt)) return;
+      var n = s.amount + g.stat.amount * 2, off = Math.random() * TAU;
+      for (var i = 0; i < n; i++) shoot(g, off + i * TAU / n, { speed: 540, r: 8, dmg: s.dmg, pierce: s.pierce, life: 1.1, kind: 'harpoon', color: '#4fd1c5', kb: 60, slow: 2, silent: true });
+      ZN.Audio.play('shoot', 90);
+    },
+    teslaBolts: function (g, w, s, dt) {
+      if (!ready(g, w, s.cd, dt)) return;
+      var base = facing(g), n = s.amount + g.stat.amount;
+      for (var i = 0; i < n; i++) shoot(g, base + (i - (n - 1) / 2) * 0.2, { speed: 640, r: 6, dmg: s.dmg, pierce: s.pierce, life: 1.0, kind: 'bolt', color: '#9ff3ff', kb: 50, chain: s.chains });
+      ZN.Audio.play('zap', 90);
+    },
+    steamBombs: function (g, w, s, dt) {
+      if (!ready(g, w, s.cd, dt)) return;
+      throwBottles(g, { dmg: s.dmg, radius: s.radius, life: s.life, burn: 6, slow: 1.5, freeze: 0.5 }, s.amount + g.stat.amount, '#bfe9ff');
+    },
     dragonsBreath: function (g, w, s, dt) { flames(g, w, s, dt, true); }
   };
 

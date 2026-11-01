@@ -33,10 +33,14 @@
 
     this.player = { x: 0, y: 0, r: 13, hp: 100, fx: 1, fy: 0, level: 1, xp: 0, xpNext: 5, hurtT: 0, iframes: 0, walk: 0, moving: false };
     this.input = { x: 0, y: 0 }; this.keys = {}; this.joy = null;
+    this.char = ZN.characterById(opts.character);
+    this.bossKey = ZN.bossFor(opts.county);
+    this.landmark = ZN.landmarkFor(opts.county);
+    this.shake = 0; this.slowT = 0; this.timers = [];
     this.computeStats();
     this.player.hp = this.stat.maxHp;
     this.revivals = this.stat.revival;
-    this.addWeapon('pistol');
+    this.addWeapon(this.char.start);
 
     this.hudT = 0;
     this.resize();
@@ -55,6 +59,7 @@
     s.area *= 1 + 0.05 * r('area'); s.duration *= 1 + 0.1 * r('duration'); s.amount += r('amount');
     s.magnet *= 1 + 0.25 * r('magnet'); s.luck += 0.1 * r('luck'); s.growth += 0.05 * r('growth');
     s.greed += 0.1 * r('greed'); s.revival = r('revival');
+    if (this.char) this.char.apply(s);
     this.passives.forEach(function (p) { ZN.PASSIVES[p.id].apply(s, p.level); });
     var old = this.stat;
     this.stat = s;
@@ -86,6 +91,7 @@
     this.weapons.splice(idx, 0, { id: ev.into, level: 1, t: 0.2, s: {} });
     this.effects.push({ kind: 'ring', x: this.player.x, y: this.player.y, r: 10, maxR: 260, t: 0, T: 0.8, color: ZN.WEAPONS[ev.into].color });
     ZN.Audio.play('evolve');
+    this.juice(10, [60, 40, 120]); this.slowT = 1.0;
     this.banner(ZN.WEAPONS[ev.into].name.toUpperCase(), 'Weapon evolved!');
   };
 
@@ -135,8 +141,8 @@
   };
 
   function evoHint(pid) {
-    var ev = ZN.EVOLUTIONS.filter(function (e) { return e.passive === pid; })[0];
-    return ev ? ' (evolves ' + ZN.WEAPONS[ev.from[0]].name + ')' : '';
+    var evs = ZN.EVOLUTIONS.filter(function (e) { return e.passive === pid; });
+    return evs.length ? ' (evolves ' + evs.map(function (ev) { return ZN.WEAPONS[ev.from[0]].name; }).join(', ') + ')' : '';
   }
 
   G.applyOption = function (o) {
@@ -228,7 +234,12 @@
     function frame(t) {
       if (g.ended) return;
       var dt = Math.min((t - g.last) / 1000, 0.05); g.last = t;
-      if (!g.paused && !g.modal) g.update(dt);
+      if (!g.paused && !g.modal) {
+        var sdt = dt;
+        if (g.slowT > 0) { g.slowT -= dt; sdt = dt * (g.slowT > 0.3 ? 0.25 : 0.25 + (0.3 - g.slowT) * 2.5); }
+        g.update(sdt);
+        g.shake = Math.max(0, g.shake - dt * 30);
+      }
       g.render();
       g.raf = requestAnimationFrame(frame);
     }
@@ -236,6 +247,20 @@
   };
 
   G.banner = function (title, sub) { if (this.opts.onBanner) this.opts.onBanner(title, sub); };
+  // Screen shake + vibration
+  G.juice = function (shake, vib) {
+    this.shake = Math.max(this.shake, shake);
+    if (vib) ZN.haptic(vib);
+  };
+  // Telegraphed area hit used by boss slams and dives
+  G.impact = function (x, y, r, dmg, color) {
+    this.effects.push({ kind: 'boom', x: x, y: y, r: r, t: 0, T: 0.45, color: color || '#ffaa33' });
+    this.effects.push({ kind: 'ring', x: x, y: y, r: r * 0.3, maxR: r * 1.1, t: 0, T: 0.4, color: '#ffffff' });
+    var p = this.player, dx = p.x - x, dy = p.y - y;
+    if (dx * dx + dy * dy < (r + p.r) * (r + p.r)) this.hurtPlayer(dmg);
+    this.juice(9, 45);
+    ZN.Audio.play('boom', 80);
+  };
 
   // ----------------------------------------------------------- difficulty
   G.effLevel = function () { return this.waveIdx + Math.floor(this.tier / 4); };
@@ -254,8 +279,8 @@
     return 'shambler';
   };
 
-  G.spawnEnemy = function (type, x, y, hpScale) {
-    var def = ZN.ENEMIES[type];
+  G.spawnEnemy = function (type, x, y, hpScale, defOverride) {
+    var def = defOverride || ZN.ENEMIES[type];
     if (x === undefined) {
       var a = Math.random() * TAU;
       x = this.player.x + Math.cos(a) * this.spawnR; y = this.player.y + Math.sin(a) * this.spawnR;
@@ -272,7 +297,7 @@
   G.spawnTick = function (dt) {
     var w = this.waveIdx, prog = this.progress();
     var rate = (2.2 + 0.5 * w + 0.05 * this.tier) * (1 + 0.7 * prog);
-    if (this.bossPhase) rate *= 0.5;
+    if (this.bossPhase) rate *= 0.35;
     var cap = Math.min(110 + 18 * w + 4 * this.tier, 320);
     this.spawnAcc += rate * dt;
     while (this.spawnAcc >= 1) {
@@ -302,8 +327,12 @@
     } else {
       this.bossPhase = true;
       var bossScale = (this.waves === 1 ? 0.8 : 1) + 0.15 * this.waves;
-      this.boss = this.spawnEnemy('boss', undefined, undefined, bossScale);
-      this.banner('HORDE BOSS', 'Slay ' + ZN.ENEMIES.boss.name + ' to liberate ' + this.county.name);
+      var bd = ZN.BOSSES[this.bossKey], base = ZN.ENEMIES.boss;
+      var def = { name: bd.name, hp: base.hp * bd.hpMul, speed: bd.speed, dmg: Math.min(base.dmg, 16 + this.tier), r: bd.r, xp: base.xp, color: bd.color, skin: bd.skin,
+        boss: true, shape: bd.shape, abilities: bd.abilities, minion: bd.minion, shot: bd.shot, flyer: bd.flyer };
+      this.boss = this.spawnEnemy('boss', undefined, undefined, bossScale, def);
+      this.banner(bd.name.toUpperCase(), 'Slay the horde boss to liberate ' + this.county.name);
+      this.juice(12, 160);
       ZN.Audio.play('boss');
     }
   };
@@ -328,7 +357,7 @@
       if (!cell) continue;
       for (var i = 0; i < cell.length; i++) {
         var e = cell[i];
-        if (e.dead) continue;
+        if (e.dead || e.submerged) continue;
         var dx = e.x - x, dy = e.y - y, rr = r + e.r;
         if (dx * dx + dy * dy <= rr * rr) fn(e);
       }
@@ -339,7 +368,7 @@
     var best = null, bd = maxR * maxR;
     for (var i = 0; i < this.enemies.length; i++) {
       var e = this.enemies[i];
-      if (e.dead || (exclude && exclude[e.id])) continue;
+      if (e.dead || e.submerged || (exclude && exclude[e.id])) continue;
       var dx = e.x - x, dy = e.y - y, d = dx * dx + dy * dy;
       if (d < bd) { bd = d; best = e; }
     }
@@ -350,7 +379,7 @@
     var p = this.player, hw = this.viewW / 2, hh = this.viewH / 2, list = [];
     for (var i = 0; i < this.enemies.length; i++) {
       var e = this.enemies[i];
-      if (!e.dead && Math.abs(e.x - p.x) < hw && Math.abs(e.y - p.y) < hh) list.push(e);
+      if (!e.dead && !e.submerged && Math.abs(e.x - p.x) < hw && Math.abs(e.y - p.y) < hh) list.push(e);
     }
     return list.length ? list[(Math.random() * list.length) | 0] : null;
   };
@@ -390,10 +419,11 @@
       this.effects.push({ kind: 'boom', x: e.x, y: e.y, r: 64, t: 0, T: 0.4, color: '#c8d84a' });
       var p = this.player, dx = p.x - e.x, dy = p.y - e.y;
       if (dx * dx + dy * dy < 64 * 64) this.hurtPlayer(e.dmg * 2);
+      if (dx * dx + dy * dy < 250 * 250) this.juice(5, 25);
       ZN.Audio.play('boom', 120);
     }
     this.effects.push({ kind: 'splat', x: e.x, y: e.y, r: e.r, t: 0, T: 0.5, color: def.color });
-    if (def.boss) this.winMission();
+    if (def.boss) { this.slowT = 1.4; this.juice(16, [100, 50, 200]); this.winMission(); }
   };
 
   G.dropGem = function (x, y, v) {
@@ -408,6 +438,7 @@
     if (p.iframes > 0 || this.victory) return;
     dmg = Math.max(1, dmg - this.stat.armor);
     p.hp -= dmg; p.hurtT = 0.2;
+    this.juice(3.5, 22);
     ZN.Audio.play('hurt', 150);
     if (p.hp <= 0) {
       if (this.revivals > 0) {
@@ -505,6 +536,7 @@
       this.modal = true;
       var g = this;
       ZN.Audio.play('levelup');
+      ZN.haptic(35);
       this.opts.onLevelUp(this.rollOptions(), function (o) {
         g.applyOption(o); g.pendingLevels--; g.modal = false; g.last = performance.now();
       });
@@ -543,17 +575,21 @@
         e.shootT -= dt;
         if (e.shootT <= 0 && d < 280 && e.freezeT <= 0 && this.enemyShots.length < 25) {
           e.shootT = rand(3.5, 5);
-          this.enemyShots.push({ x: e.x, y: e.y, vx: ux * 125, vy: uy * 125, r: 6, dmg: e.dmg, life: 3 });
+          this.enemyShots.push({ x: e.x, y: e.y, vx: ux * 125, vy: uy * 125, r: 6, dmg: e.dmg, life: 3, color: '#9be03a' });
         }
       }
-      if (e.def.boss) sp = this.bossAI(e, dt, ux, uy, d, sp);
+      if (e.def.boss) {
+        sp = Math.max(sp, this.stat.speed * (this.waves === 1 ? 0.6 : 0.72) * (e.slowT > 0 ? 0.5 : 1));
+        if (d > 260) sp *= 1.8;
+        sp = this.bossAI(e, dt, ux, uy, d, sp);
+      }
       if (e.chargeT > 0) { mx = e.cdx; my = e.cdy; }
       e.x += (mx * sp + e.kbx) * dt; e.y += (my * sp + e.kby) * dt;
       e.kbx *= Math.pow(0.02, dt); e.kby *= Math.pow(0.02, dt);
       e.dir = Math.atan2(my, mx);
 
       // separation from neighbours
-      this.queryEnemies(e.x, e.y, e.r, function (o) {
+      if (!e.submerged) this.queryEnemies(e.x, e.y, e.r, function (o) {
         if (o === e || o.id < e.id) return;
         var sx = o.x - e.x, sy = o.y - e.y, sd = Math.sqrt(sx * sx + sy * sy) || 0.01, overlap = e.r + o.r - sd;
         if (overlap > 0) {
@@ -563,11 +599,30 @@
         }
       });
 
-      if (d < e.r + p.r && e.atkT <= 0 && e.freezeT <= 0) { e.atkT = 0.7; g.hurtPlayer(e.dmg); }
+      if (d < e.r + p.r && e.atkT <= 0 && e.freezeT <= 0 && !e.submerged) { e.atkT = e.def.boss ? 1 : 0.7; g.hurtPlayer(e.dmg); }
     }
   };
 
   G.bossAI = function (e, dt, ux, uy, d, sp) {
+    var bd = e.def, p = this.player;
+    if (e.submerged) {
+      e.subT -= dt;
+      if (e.subT > 0.9) return sp * 2.4;            // swimming towards you underground / underwater
+      if (!e.marked) {
+        e.marked = true; e.tx = p.x; e.ty = p.y;
+        this.effects.push({ kind: 'warn', x: e.tx, y: e.ty, r: 95, t: 0, T: 0.9 });
+      }
+      if (e.subT <= 0) {
+        e.submerged = false; e.marked = false; e.x = e.tx; e.y = e.ty;
+        this.impact(e.x, e.y, 95, e.dmg * 1.2, bd.shot || '#6fd0c0');
+      }
+      return 0;
+    }
+    if (e.slamT > 0) {
+      e.slamT -= dt;
+      if (e.slamT <= 0) this.impact(e.x, e.y, 150, e.dmg, '#a8a090');
+      return 0;
+    }
     if (e.windT > 0) {
       e.windT -= dt;
       if (e.windT <= 0) { e.chargeT = 0.7; }
@@ -575,17 +630,31 @@
     }
     if (e.chargeT > 0) { e.chargeT -= dt; return sp * 5; }
     e.specT -= dt;
-    if (e.specT <= 0) {
-      e.specT = rand(4, 6);
-      if (Math.random() < 0.6 && d < 420) { e.windT = 0.7; e.cdx = ux; e.cdy = uy; }
-      else {
-        var n = 4 + Math.min(Math.floor(this.tier / 2), 8);
-        for (var i = 0; i < n; i++) {
-          var a = i / n * TAU;
-          this.spawnEnemy(Math.random() < 0.5 ? 'runner' : 'shambler', e.x + Math.cos(a) * 60, e.y + Math.sin(a) * 60);
-        }
-        this.effects.push({ kind: 'ring', x: e.x, y: e.y, r: 10, maxR: 90, t: 0, T: 0.5, color: '#c45a4a' });
+    if (e.specT > 0) return sp;
+    e.specT = rand(3.5, 5.5);
+    var abs = bd.abilities || ['charge', 'summon'], ab = abs[(Math.random() * abs.length) | 0];
+    if (ab === 'charge' && d > 420) ab = 'summon';
+    if (ab === 'charge') { e.windT = 0.7; e.cdx = ux; e.cdy = uy; }
+    else if (ab === 'volley') {
+      var n = 12 + Math.min(this.tier, 12), off = Math.random() * TAU;
+      for (var k = 0; k < n; k++) {
+        var aa = off + k / n * TAU;
+        this.enemyShots.push({ x: e.x, y: e.y, vx: Math.cos(aa) * 135, vy: Math.sin(aa) * 135, r: 7, dmg: e.dmg * 0.6, life: 4, color: bd.shot || '#ff6b6b' });
       }
+      ZN.Audio.play('zap', 100);
+    } else if (ab === 'dive') {
+      e.submerged = true; e.subT = 2.8; e.marked = false;
+      this.effects.push({ kind: 'ring', x: e.x, y: e.y, r: 10, maxR: 70, t: 0, T: 0.5, color: bd.shot || '#6fd0c0' });
+    } else if (ab === 'slam') {
+      e.slamT = 0.95;
+      this.effects.push({ kind: 'warn', x: e.x, y: e.y, r: 150, t: 0, T: 0.95, follow: e });
+    } else {
+      var m = 4 + Math.min(Math.floor(this.tier / 2), 8);
+      for (var i = 0; i < m; i++) {
+        var a = i / m * TAU;
+        this.spawnEnemy(bd.minion || (Math.random() < 0.5 ? 'runner' : 'shambler'), e.x + Math.cos(a) * 60, e.y + Math.sin(a) * 60);
+      }
+      this.effects.push({ kind: 'ring', x: e.x, y: e.y, r: 10, maxR: 90, t: 0, T: 0.5, color: bd.color });
     }
     return sp;
   };
@@ -598,11 +667,18 @@
       if (pr.grow) pr.r += pr.grow * dt;
       pr.x += pr.vx * dt; pr.y += pr.vy * dt;
       if (pr.drag) { var f = Math.pow(pr.drag, dt); pr.vx *= f; pr.vy *= f; }
+      if (pr.boomerang && pr.life < pr.maxLife * 0.5) {
+        if (!pr.returning) { pr.returning = true; pr.hit = {}; }
+        var bx = this.player.x - pr.x, by = this.player.y - pr.y, bl = Math.sqrt(bx * bx + by * by) || 1;
+        pr.vx = bx / bl * pr.speed; pr.vy = by / bl * pr.speed;
+        if (bl < 20) continue;
+      }
       if (pr.life <= 0) continue;
       this.queryEnemies(pr.x, pr.y, pr.r, function (e) {
         if (pr.pierce <= 0 || pr.hit[e.id]) return;
         pr.hit[e.id] = 1; pr.pierce--;
-        g.damage(e, pr.dmg, { kb: pr.kb || 0, kx: pr.vx, ky: pr.vy, burn: pr.burn, slow: pr.slow, silent: pr.silent });
+        g.damage(e, pr.dmg, { kb: pr.kb || 0, kx: pr.vx, ky: pr.vy, burn: pr.burn, slow: pr.slow, freeze: pr.freeze, silent: pr.silent });
+        if (pr.chain && !e.dead && pr.chained < 3) { pr.chained = (pr.chained || 0) + 1; ZN.chainLightning(g, e, pr.chain, pr.dmg * 0.5, 140, '#9ff3ff'); }
       });
       if (pr.pierce > 0) out.push(pr);
     }
@@ -626,7 +702,7 @@
       pl.life -= dt; pl.tickT -= dt;
       if (pl.tickT <= 0) {
         pl.tickT = pl.tick;
-        this.queryEnemies(pl.x, pl.y, pl.r, function (e) { g.damage(e, pl.dmg, { burn: pl.burn, silent: true }); });
+        this.queryEnemies(pl.x, pl.y, pl.r, function (e) { g.damage(e, pl.dmg, { burn: pl.burn, slow: pl.slow, freeze: pl.freeze, silent: true }); });
       }
       if (pl.life > 0) out.push(pl);
     }
@@ -693,6 +769,7 @@
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = this.style.ground; ctx.fillRect(0, 0, W, H);
     var camX = p.x - this.viewW / 2, camY = p.y - this.viewH / 2;
+    if (this.shake > 0.2 && ZN.Save.data.shake !== false) { camX += rand(-1, 1) * this.shake; camY += rand(-1, 1) * this.shake; }
     ctx.setTransform(k, 0, 0, k, -camX * k, -camY * k);
 
     this.drawGround(camX, camY);
@@ -708,7 +785,7 @@
     this.drawPlayer();
     for (i = 0; i < this.projectiles.length; i++) this.drawProjectile(this.projectiles[i]);
     ctx.fillStyle = '#9be03a';
-    for (i = 0; i < this.enemyShots.length; i++) { var s = this.enemyShots[i]; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, TAU); ctx.fill(); }
+    for (i = 0; i < this.enemyShots.length; i++) { var s = this.enemyShots[i]; ctx.fillStyle = s.color || '#9be03a'; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, TAU); ctx.fill(); }
     for (i = 0; i < this.weapons.length; i++) if (ZN.WEAPON_DRAW[this.weapons[i].id]) ZN.WEAPON_DRAW[this.weapons[i].id](this, ctx, this.weapons[i]);
     for (i = 0; i < this.effects.length; i++) if (this.effects[i].kind !== 'splat') this.drawEffect(this.effects[i]);
     this.drawTexts();
@@ -740,8 +817,9 @@
       }
       ctx.fillStyle = 'rgba(0,0,0,0.12)';
       for (var t = 0; t < 3; t++) { var hh = hash(tx * 7 + t, ty * 13, this.seed); ctx.fillRect(x + hh % T, y + (hh >> 8) % T, 2, 5); }
-      if (h % 100 < 30) this.drawDecor(st.decor[(h >> 5) % st.decor.length], x + 20 + (h >> 11) % 80, y + 20 + (h >> 17) % 80, h);
+      if (h % 100 < 30 && !(Math.abs(tx) <= 2 && ty >= -4 && ty <= -1)) this.drawDecor(st.decor[(h >> 5) % st.decor.length], x + 20 + (h >> 11) % 80, y + 20 + (h >> 17) % 80, h);
     }
+    if (camX < 280 && camX + this.viewW > -280 && camY < 0 && camY + this.viewH > -520) ZN.drawLandmark(this, ctx, this.landmark, 0, -250);
   };
 
   G.drawDecor = function (type, x, y, h) {
@@ -795,7 +873,7 @@
     var ctx = this.ctx, a = clamp(pl.life / 0.5, 0, 1);
     ctx.globalAlpha = 0.45 * a;
     var gr = ctx.createRadialGradient(pl.x, pl.y, 2, pl.x, pl.y, pl.r);
-    gr.addColorStop(0, '#ffd23a'); gr.addColorStop(0.5, pl.color || '#ff6a00'); gr.addColorStop(1, 'rgba(255,40,0,0)');
+    gr.addColorStop(0, pl.slow ? '#ffffff' : '#ffd23a'); gr.addColorStop(0.5, pl.color || '#ff6a00'); gr.addColorStop(1, 'rgba(255,40,0,0)');
     ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(pl.x, pl.y, pl.r, 0, TAU); ctx.fill();
     ctx.globalAlpha = 0.8 * a; ctx.fillStyle = '#ffb02e';
     for (var i = 0; i < 4; i++) {
@@ -836,6 +914,14 @@
 
   G.drawEnemy = function (e) {
     var ctx = this.ctx, def = e.def, r = e.r, dir = e.dir || 0;
+    if (e.submerged) {
+      ctx.strokeStyle = 'rgba(160,220,210,0.7)'; ctx.lineWidth = 3;
+      for (var q = 0; q < 3; q++) { var rr = r * (0.5 + ((this.time * 1.5 + q / 3) % 1) * 0.9); ctx.globalAlpha = 1 - ((this.time * 1.5 + q / 3) % 1); ctx.beginPath(); ctx.ellipse(e.x, e.y, rr, rr * 0.5, 0, 0, TAU); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+      if (def.shape === 'nessie') { ctx.fillStyle = def.color; ctx.beginPath(); ctx.ellipse(e.x, e.y, r * 0.5, r * 0.2, 0, Math.PI, TAU); ctx.fill(); }
+      return;
+    }
+    if (def.flyer || (def.shape && def.shape !== 'zombie')) { ZN.drawSpecial(this, ctx, e); this.drawHpBar(e); return; }
     var cos = Math.cos(dir), sin = Math.sin(dir), wob = Math.sin(e.anim) * 0.15;
     ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.8, r, r * 0.4, 0, 0, TAU); ctx.fill();
     if (e.windT > 0) { ctx.strokeStyle = 'rgba(255,60,60,0.8)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.x + e.cdx * 300, e.y + e.cdy * 300); ctx.stroke(); }
@@ -863,12 +949,15 @@
     else if (e.slowT > 0) { ctx.strokeStyle = 'rgba(140,210,255,0.8)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, r + 2, 0, TAU); ctx.stroke(); }
     if (e.burnT > 0) { ctx.fillStyle = 'rgba(255,' + (100 + (Math.random() * 80 | 0)) + ',0,0.7)'; ctx.beginPath(); ctx.arc(e.x + rand(-r, r) * 0.5, e.y - r * 0.6, r * 0.35, 0, TAU); ctx.fill(); }
     if (e.flash > 0) { ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.arc(e.x, e.y, r, 0, TAU); ctx.fill(); }
-    if ((def.elite || def.boss) || e.hp < e.maxHp) {
-      if (def.elite || def.boss || e.maxHp > 40) {
-        var bw = r * 2;
-        ctx.fillStyle = '#300'; ctx.fillRect(e.x - bw / 2, e.y - r - 10, bw, 4);
-        ctx.fillStyle = def.boss ? '#ff3b3b' : def.elite ? '#d07aff' : '#f0c040'; ctx.fillRect(e.x - bw / 2, e.y - r - 10, bw * clamp(e.hp / e.maxHp, 0, 1), 4);
-      }
+    this.drawHpBar(e);
+  };
+
+  G.drawHpBar = function (e) {
+    var ctx = this.ctx, def = e.def, r = e.r;
+    if (def.elite || def.boss || (e.hp < e.maxHp && e.maxHp > 40)) {
+      var bw = r * 2;
+      ctx.fillStyle = '#300'; ctx.fillRect(e.x - bw / 2, e.y - r - 10, bw, 4);
+      ctx.fillStyle = def.boss ? '#ff3b3b' : def.elite ? '#d07aff' : '#f0c040'; ctx.fillRect(e.x - bw / 2, e.y - r - 10, bw * clamp(e.hp / e.maxHp, 0, 1), 4);
     }
   };
 
@@ -882,13 +971,13 @@
     ctx.fillRect(x - 6, y + 4 + (p.moving ? Math.sin(p.walk) * 3 : 0), 5, 9);
     ctx.fillRect(x + 1, y + 4 - (p.moving ? Math.sin(p.walk) * 3 : 0), 5, 9);
     // coat
-    ctx.fillStyle = '#26466e'; ctx.beginPath(); ctx.ellipse(x, y + bob, 10, 11, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#c8102e'; ctx.fillRect(x - 10, y - 2 + bob, 20, 3);
+    var ch = this.char;
+    ctx.fillStyle = ch.coat; ctx.beginPath(); ctx.ellipse(x, y + bob, 10, 11, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = ch.id === 'beefeater' ? '#ffd23a' : '#c8102e'; ctx.fillRect(x - 10, y - 2 + bob, 20, 3);
     // head
-    ctx.fillStyle = '#f1c9a0'; ctx.beginPath(); ctx.arc(x + p.fx * 2, y - 12 + bob, 7, 0, TAU); ctx.fill();
-    // flat cap
-    ctx.fillStyle = '#5a4a3a'; ctx.beginPath(); ctx.ellipse(x + p.fx * 3, y - 16 + bob, 8, 4, 0, Math.PI, TAU); ctx.fill();
-    ctx.fillRect(x - 8 + p.fx * 3, y - 16 + bob, 16 + Math.abs(p.fx) * 3, 2);
+    var hx = x + p.fx * 2, hy = y - 12 + bob;
+    ctx.fillStyle = '#f1c9a0'; ctx.beginPath(); ctx.arc(hx, hy, 7, 0, TAU); ctx.fill();
+    ZN.drawHat(ctx, ch, hx + p.fx, hy);
     // facing marker
     ctx.fillStyle = 'rgba(255,255,255,0.5)';
     ctx.beginPath(); ctx.arc(x + p.fx * 22, y + p.fy * 22, 2.5, 0, TAU); ctx.fill();
@@ -907,7 +996,13 @@
     }
     var ang = Math.atan2(pr.vy, pr.vx);
     ctx.save(); ctx.translate(pr.x, pr.y); ctx.rotate(ang);
-    if (pr.kind === 'bolt') {
+    if (pr.kind === 'bat') {
+      ctx.rotate(this.time * 18);
+      ctx.fillStyle = '#d9b77a'; ctx.fillRect(-14, -4, 22, 8); ctx.fillStyle = '#7a5a3a'; ctx.fillRect(8, -2, 9, 4);
+    } else if (pr.kind === 'harpoon') {
+      ctx.fillStyle = '#5a4a3a'; ctx.fillRect(-18, -1.5, 22, 3);
+      ctx.fillStyle = pr.color || '#cfd6de'; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(2, -5); ctx.lineTo(4, 0); ctx.lineTo(2, 5); ctx.fill();
+    } else if (pr.kind === 'bolt') {
       ctx.fillStyle = '#6b4a2b'; ctx.fillRect(-pr.r * 3, -pr.r * 0.25, pr.r * 5, pr.r * 0.5);
       ctx.fillStyle = pr.color || '#ccc'; ctx.beginPath(); ctx.moveTo(pr.r * 3, 0); ctx.lineTo(pr.r * 1.6, -pr.r * 0.8); ctx.lineTo(pr.r * 1.6, pr.r * 0.8); ctx.fill();
     } else {
@@ -918,6 +1013,7 @@
   };
 
   G.drawEffect = function (f) {
+    if (f.t < 0) return;
     var ctx = this.ctx, a = 1 - f.t / f.T, i;
     switch (f.kind) {
       case 'splat':
@@ -949,6 +1045,14 @@
       case 'ring':
         ctx.globalAlpha = a; ctx.strokeStyle = f.color; ctx.lineWidth = 4;
         ctx.beginPath(); ctx.arc(f.x, f.y, f.r + (f.maxR - f.r) * (f.t / f.T), 0, TAU); ctx.stroke(); break;
+      case 'warn': {
+        var wx = f.follow ? f.follow.x : f.x, wy = f.follow ? f.follow.y : f.y, prog = f.t / f.T;
+        ctx.globalAlpha = 0.25 + prog * 0.35; ctx.fillStyle = '#ff2a2a';
+        ctx.beginPath(); ctx.arc(wx, wy, f.r * prog, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 0.9; ctx.strokeStyle = '#ff5050'; ctx.lineWidth = 3; ctx.setLineDash([10, 8]);
+        ctx.beginPath(); ctx.arc(wx, wy, f.r, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+        break;
+      }
       case 'beam':
         ctx.globalAlpha = a; ctx.strokeStyle = f.color; ctx.lineWidth = f.w * a + 2; ctx.lineCap = 'round';
         ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.lineTo(f.x2, f.y2); ctx.stroke();

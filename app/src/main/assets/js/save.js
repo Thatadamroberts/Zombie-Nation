@@ -4,7 +4,8 @@
   var KEY = 'zombie_nation_save_v1';
 
   function defaults() {
-    return { v: 1, coins: 0, accXp: 0, accLevel: 1, cleared: {}, shop: {}, sound: true,
+    return { v: 1, coins: 0, accXp: 0, accLevel: 1, cleared: {}, shop: {}, sound: true, haptics: true, shake: true,
+      character: 'tommy', owned: { tommy: true }, threats: {},
       stats: { kills: 0, runs: 0, wins: 0, bestLevel: 0 }, seenIntro: false };
   }
 
@@ -37,6 +38,30 @@
     },
     save: function () { rawSave(JSON.stringify(Save.data)); },
     reset: function () { Save.data = defaults(); Save.save(); },
+
+    isThreatened: function (id) { return Save.data.threats[id] > 0; },
+
+    // Called after every mission. Ticks counter-attack timers, may start a new one.
+    // Returns { defended, fallen: [ids], newThreat }
+    updateThreats: function (playedId, won) {
+      var d = Save.data, out = { defended: null, fallen: [], newThreat: null };
+      if (won && d.threats[playedId]) { delete d.threats[playedId]; out.defended = playedId; }
+      Object.keys(d.threats).forEach(function (id) {
+        d.threats[id]--;
+        if (d.threats[id] <= 0) { delete d.threats[id]; delete d.cleared[id]; out.fallen.push(id); }
+      });
+      var open = Object.keys(d.threats).length;
+      if (Save.clearedCount() >= 3 && open < 2 && Math.random() < 0.4) {
+        var cands = Object.keys(d.cleared).filter(function (id) {
+          return id !== playedId && !d.threats[id] && ZN.MAP.byId[id].adj.some(function (n) { return !d.cleared[n]; });
+        });
+        if (cands.length) {
+          var pick = cands[(Math.random() * cands.length) | 0];
+          d.threats[pick] = ZN.THREAT_MISSIONS; out.newThreat = pick;
+        }
+      }
+      return out;
+    },
 
     clearedCount: function () { return Object.keys(Save.data.cleared).length; },
     isCleared: function (id) { return !!Save.data.cleared[id]; },

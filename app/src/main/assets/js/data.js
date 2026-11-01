@@ -5,6 +5,7 @@ var ZN = window.ZN = window.ZN || {};
 ZN.MAX_WAVES = 20;          // waves cap so late-game missions stay a sensible length
 ZN.WAVE_DURATION = 40;      // seconds per wave
 ZN.FIRST_WAVE_DURATION = 60;
+ZN.THREAT_MISSIONS = 3;   // missions you have to defend a counter-attacked county
 
 // ---------------------------------------------------------------------------
 // Geography. Outlines are [lat, lon] approximations of the coastline.
@@ -224,6 +225,38 @@ ZN.WEAPONS = {
         range: 1 * (l >= 3 ? 1.25 : 1), spread: l >= 5 ? 0.55 : 0.32, burn: l >= 4 ? 5 : 2 };
     }
   },
+  cricketBat: {
+    name: 'Cricket Bat', icon: '🏏', color: '#d9b77a', kind: 'Melee · Knockback', max: 6,
+    levels: ['A mighty swing that sends zombies flying.', '+6 damage', '+20% area', '-15% cooldown', 'Swings both ways', '+10 damage, huge knockback'],
+    stats: function (l) {
+      return { dmg: 18 + (l >= 2 ? 6 : 0) + (l >= 6 ? 10 : 0), cd: l >= 4 ? 1.1 : 1.3,
+        radius: 64 * (l >= 3 ? 1.2 : 1), dirs: l >= 5 ? 2 : 1, kb: l >= 6 ? 260 : 170 };
+    }
+  },
+  bagpipes: {
+    name: 'Bagpipes', icon: '🎶', color: '#c7a0ff', kind: 'Sonic · Stun', max: 6,
+    levels: ['A wailing cone of sound that stuns zombies.', 'Wider cone', '+5 damage', '+25% range', 'Longer stun', '+5 damage, -20% cooldown'],
+    stats: function (l) {
+      return { dmg: 13 + (l >= 3 ? 6 : 0) + (l >= 6 ? 6 : 0), cd: l >= 6 ? 1.4 : 1.75, arc: l >= 2 ? 1.3 : 0.95,
+        radius: 140 * (l >= 4 ? 1.25 : 1), stun: l >= 5 ? 1.3 : 0.8 };
+    }
+  },
+  halberd: {
+    name: 'Beefeater Halberd', icon: '🔱', color: '#e0c060', kind: 'Melee · Reach', max: 6,
+    levels: ['A long, narrow thrust that skewers lines of zombies.', '+8 damage', '+20% reach', 'Also thrusts behind you', '-20% cooldown', '+15 damage, sweeping arc'],
+    stats: function (l) {
+      return { dmg: 26 + (l >= 2 ? 8 : 0) + (l >= 6 ? 15 : 0), cd: l >= 5 ? 1.25 : 1.6,
+        radius: 125 * (l >= 3 ? 1.2 : 1), dirs: l >= 4 ? 2 : 1, arc: l >= 6 ? 1.4 : 0.7 };
+    }
+  },
+  harpoon: {
+    name: 'Harpoon Gun', icon: '🪝', color: '#7fb8c8', kind: 'Ranged · Pierce', max: 6,
+    levels: ['Fires heavy harpoons through rows of zombies.', '+1 harpoon', '+8 damage', '+3 pierce', '-20% cooldown', '+1 harpoon, +10 damage'],
+    stats: function (l) {
+      return { dmg: 22 + (l >= 3 ? 8 : 0) + (l >= 6 ? 10 : 0), cd: l >= 5 ? 1.2 : 1.5,
+        amount: 1 + (l >= 2 ? 1 : 0) + (l >= 6 ? 1 : 0), pierce: 4 + (l >= 4 ? 3 : 0) };
+    }
+  },
   // ---- Evolutions ----
   minigun: {
     name: 'Minigun', icon: '🔫', color: '#ffd166', kind: 'Evolved · Ranged', max: 1, evolved: true,
@@ -264,6 +297,36 @@ ZN.WEAPONS = {
     name: "Dragon's Breath", icon: '🐉', color: '#ff2a00', kind: 'Evolved · Fire', max: 1, evolved: true,
     levels: ['The red dragon of Wales roars from your hands.'],
     stats: function () { return { dmg: 10, cd: 0.07, range: 2.1, spread: 0.6, burn: 8 }; }
+  },
+  teslaBolts: {
+    name: 'Tesla Bolts', icon: '🌀', color: '#9ff3ff', kind: 'Evolved · Shock', max: 1, evolved: true,
+    levels: ['Crackling bolts that chain lightning through every zombie they pierce.'],
+    stats: function () { return { dmg: 34, cd: 0.7, amount: 3, pierce: 6, chains: 3 }; }
+  },
+  steamBombs: {
+    name: 'Steam Bombs', icon: '♨️', color: '#e6f4ff', kind: 'Evolved · Frost & Fire', max: 1, evolved: true,
+    levels: ['Scalding steam clouds that burn and freeze at the same time.'],
+    stats: function () { return { dmg: 14, cd: 2.2, amount: 4, radius: 82, life: 4 }; }
+  },
+  sixHitter: {
+    name: 'Six-Hitter', icon: '🏏', color: '#ffd27a', kind: 'Evolved · Boomerang', max: 1, evolved: true,
+    levels: ['Hurls spinning cricket bats that smash out and back again.'],
+    stats: function () { return { dmg: 32, cd: 1.5, amount: 3 }; }
+  },
+  highlandLament: {
+    name: 'Highland Lament', icon: '🎶', color: '#d8b8ff', kind: 'Evolved · Sonic', max: 1, evolved: true,
+    levels: ['A haunting lament in every direction that stuns the whole horde.'],
+    stats: function () { return { dmg: 26, cd: 2.4, radius: 210, stun: 1.4 }; }
+  },
+  yeomansWrath: {
+    name: "Yeoman's Wrath", icon: '👑', color: '#ffcc33', kind: 'Evolved · Reach', max: 1, evolved: true,
+    levels: ['Royal sweeps of the halberd in every direction.'],
+    stats: function () { return { dmg: 60, cd: 1.2, radius: 150 }; }
+  },
+  krakensReach: {
+    name: "Kraken's Reach", icon: '🐙', color: '#4fd1c5', kind: 'Evolved · Pierce', max: 1, evolved: true,
+    levels: ['A ring of harpoons erupts outward, slowing all they pass through.'],
+    stats: function () { return { dmg: 40, cd: 1.3, amount: 8, pierce: 9999 }; }
   }
 };
 
@@ -276,7 +339,13 @@ ZN.EVOLUTIONS = [
   { from: ['cheese'], passive: 'tea', into: 'stilton' },
   { from: ['hubcaps'], passive: 'brolly', into: 'buzzsaw' },
   { from: ['lightning'], passive: 'pocketWatch', into: 'thunderstorm' },
-  { from: ['flamethrower'], passive: 'unionCape', into: 'dragonsBreath' }
+  { from: ['flamethrower'], passive: 'unionCape', into: 'dragonsBreath' },
+  { from: ['crossbow', 'elecSword'], passive: null, into: 'teslaBolts' },
+  { from: ['molotov', 'iceSword'], passive: null, into: 'steamBombs' },
+  { from: ['cricketBat'], passive: 'wellies', into: 'sixHitter' },
+  { from: ['bagpipes'], passive: 'horseshoe', into: 'highlandLament' },
+  { from: ['halberd'], passive: 'brolly', into: 'yeomansWrath' },
+  { from: ['harpoon'], passive: 'magnet', into: 'krakensReach' }
 ];
 
 // ---------------------------------------------------------------------------
@@ -301,13 +370,14 @@ ZN.MAX_PASSIVE_SLOTS = 6;
 // Account level at which each item becomes available in the level-up pool
 ZN.UNLOCKS = {
   1: ['pistol', 'iceSword', 'cheese', 'molotov', 'tea', 'wellies', 'fullEnglish', 'magnet', 'ammoBelt'],
-  2: ['fireSword'],
+  2: ['fireSword', 'cricketBat'],
   3: ['crossbow', 'pocketWatch'],
   4: ['hubcaps', 'brolly'],
   5: ['elecSword'],
-  6: ['lightning', 'fuelCan'],
+  6: ['lightning', 'fuelCan', 'bagpipes'],
   7: ['flamethrower', 'unionCape'],
-  8: ['horseshoe']
+  8: ['horseshoe', 'halberd'],
+  9: ['harpoon']
 };
 
 // Account XP needed to go from level L to L+1
@@ -323,6 +393,7 @@ ZN.ENEMIES = {
   brute:    { name: 'Brute',    hp: 70, speed: 30, dmg: 18, r: 20, xp: 5, color: '#5b7a7a', skin: '#7fa3a0' },
   spitter:  { name: 'Spitter',  hp: 20, speed: 36, dmg: 6, r: 12, xp: 3, color: '#7a5a8a', skin: '#a37fb5', ranged: true },
   bloater:  { name: 'Bloater',  hp: 32, speed: 32, dmg: 8, r: 16, xp: 3, color: '#8a7a3a', skin: '#c2b35a', explodes: true },
+  kite:     { name: 'Red Kite', hp: 7, speed: 120, dmg: 6, r: 9, xp: 1, color: '#8a3a2a', skin: '#c46a3a', flyer: true },
   elite:    { name: 'Elite',    hp: 70, speed: 42, dmg: 20, r: 22, xp: 20, color: '#7a2f8a', skin: '#b55ac7', elite: true },
   boss:     { name: 'The Abomination', hp: 320, speed: 46, dmg: 30, r: 38, xp: 60, color: '#8a2a2a', skin: '#c45a4a', boss: true }
 };
@@ -347,3 +418,58 @@ ZN.SHOP = [
   { id: 'revival',  name: 'Second Wind',icon: '🪽', desc: 'Revive once per mission at 50% HP', max: 1, cost: 800 }
 ];
 ZN.shopCost = function (item, rank) { return Math.round(item.cost * (1 + rank * 0.75)); };
+
+// ---------------------------------------------------------------------------
+// Playable survivors (bought with coins)
+// ---------------------------------------------------------------------------
+ZN.CHARACTERS = [
+  { id: 'tommy', name: 'Tommy', title: 'The Survivor', icon: '🧢', cost: 0, start: 'pistol',
+    perks: 'Balanced all-rounder.', coat: '#26466e', hat: 'flat', hatColor: '#5a4a3a',
+    apply: function () {} },
+  { id: 'beefeater', name: 'Bert', title: 'Beefeater', icon: '💂', cost: 300, start: 'halberd',
+    perks: '+2 armour, +20 max HP, -10% speed.', coat: '#b3101e', hat: 'bonnet', hatColor: '#1a1a2a',
+    apply: function (s) { s.armor += 2; s.maxHp += 20; s.speed *= 0.9; } },
+  { id: 'shepherd', name: 'Rhiannon', title: 'Welsh Shepherd', icon: '🐑', cost: 400, start: 'molotov',
+    perks: '+15% speed, +40% pickup range.', coat: '#2f6b3a', hat: 'beanie', hatColor: '#c8102e',
+    apply: function (s) { s.speed *= 1.15; s.magnet *= 1.4; } },
+  { id: 'bouncer', name: 'Big Rab', title: 'Glaswegian Bouncer', icon: '🥃', cost: 500, start: 'cheese',
+    perks: '+30% max HP, +15% area, +0.3 HP/s regen.', coat: '#1c1c1c', hat: 'bald', hatColor: '#f1c9a0',
+    apply: function (s) { s.maxHp *= 1.3; s.area *= 1.15; s.regen += 0.3; } },
+  { id: 'fisherman', name: 'Jory', title: 'Cornish Fisherman', icon: '🎣', cost: 500, start: 'harpoon',
+    perks: '+25% luck, +25% coins, +5% crit.', coat: '#e0b020', hat: 'souwester', hatColor: '#e0b020',
+    apply: function (s) { s.luck += 0.25; s.greed += 0.25; s.crit += 0.05; } },
+  { id: 'piper', name: 'Morag', title: 'Highland Piper', icon: '🎶', cost: 650, start: 'bagpipes',
+    perks: '-10% cooldown, +20% effect duration.', coat: '#2b4a8a', hat: 'tam', hatColor: '#1f6b3a',
+    apply: function (s) { s.cooldown *= 0.9; s.duration *= 1.2; } }
+];
+ZN.characterById = function (id) {
+  for (var i = 0; i < ZN.CHARACTERS.length; i++) if (ZN.CHARACTERS[i].id === id) return ZN.CHARACTERS[i];
+  return ZN.CHARACTERS[0];
+};
+
+// ---------------------------------------------------------------------------
+// Regional horde bosses. abilities: charge, summon, volley, dive, slam
+// ---------------------------------------------------------------------------
+ZN.BOSSES = {
+  abomination: { name: 'The Abomination', hpMul: 1, speed: 46, r: 38, color: '#8a2a2a', skin: '#c45a4a', shape: 'zombie', abilities: ['charge', 'summon'], minion: 'shambler' },
+  colossus:    { name: 'The Beefeater Colossus', hpMul: 1.2, speed: 40, r: 44, color: '#9a1020', skin: '#c9a080', shape: 'beefeater', abilities: ['charge', 'volley', 'summon'], minion: 'runner', shot: '#ffd23a' },
+  druid:       { name: 'The Stonehenge Druid', hpMul: 0.9, speed: 38, r: 34, color: '#5a5a6a', skin: '#a8b0a0', shape: 'druid', abilities: ['volley', 'summon', 'slam'], minion: 'shambler', shot: '#b0b8a8' },
+  kite:        { name: 'The Red Kite Matriarch', hpMul: 0.85, speed: 70, r: 34, color: '#7a2a1a', skin: '#c46a3a', shape: 'kite', abilities: ['charge', 'summon'], minion: 'kite', flyer: true },
+  nessie:      { name: 'Nessie', hpMul: 1.15, speed: 50, r: 40, color: '#2f5a4a', skin: '#4f8a6a', shape: 'nessie', abilities: ['dive', 'volley', 'dive'], minion: 'crawler', shot: '#6fd0c0' },
+  golem:       { name: "The Causeway Golem", hpMul: 1.4, speed: 30, r: 46, color: '#3a3a40', skin: '#5a5a66', shape: 'golem', abilities: ['slam', 'slam', 'summon'], minion: 'shambler' },
+  bogbeast:    { name: 'The Fen Bog Beast', hpMul: 1.0, speed: 36, r: 40, color: '#4a5a2a', skin: '#7a8a3a', shape: 'zombie', abilities: ['volley', 'summon', 'charge'], minion: 'bloater', shot: '#9be03a' },
+  pitwraith:   { name: 'The Pit Wraith', hpMul: 1.0, speed: 44, r: 36, color: '#2a2a2a', skin: '#6a6a6a', shape: 'zombie', abilities: ['dive', 'charge', 'summon'], minion: 'runner' }
+};
+ZN.REGION_BOSS = { sw: 'druid', se: 'abomination', east: 'bogbeast', mid: 'abomination', north: 'pitwraith',
+  wales: 'kite', scot: 'abomination', high: 'nessie', city: 'abomination', ni: 'golem' };
+ZN.COUNTY_BOSS = { london: 'colossus', wiltshire: 'druid', powys: 'kite', highland: 'nessie', lochaber: 'nessie',
+  caithness: 'nessie', antrim: 'golem', perth: 'nessie', argyll: 'nessie' };
+
+// Landmarks drawn near the start of each mission
+ZN.REGION_LANDMARK = { sw: 'church', se: 'church', east: 'windmill', mid: 'pub', north: 'pithead', wales: 'castle',
+  scot: 'castle', high: 'loch', city: 'pub', ni: 'causeway' };
+ZN.COUNTY_LANDMARK = { london: 'bigben', wiltshire: 'stonehenge', cornwall: 'lighthouse', devon: 'lighthouse', tyne: 'angel',
+  durham: 'angel', antrim: 'causeway', highland: 'loch', lochaber: 'loch', lothian: 'castle', gwynedd: 'castle',
+  kent: 'cliffs', esussex: 'cliffs', norfolk: 'windmill', cambs: 'windmill', manchester: 'pub', westmids: 'pub' };
+ZN.bossFor = function (c) { return ZN.COUNTY_BOSS[c.id] || ZN.REGION_BOSS[c.region] || 'abomination'; };
+ZN.landmarkFor = function (c) { return ZN.COUNTY_LANDMARK[c.id] || ZN.REGION_LANDMARK[c.region] || 'church'; };

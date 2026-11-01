@@ -17,6 +17,7 @@
     if (name === 'map') renderMap();
     if (name === 'shop') renderShop();
     if (name === 'armoury') renderArmoury();
+    if (name === 'survivors') renderSurvivors();
     if (name === 'title') updateSoundButtons();
   }
   ZN.show = show;
@@ -32,12 +33,14 @@
   }
 
   function updateSoundButtons() {
-    var t = 'Sound: ' + (Save.data.sound ? 'On' : 'Off');
+    var d = Save.data, t = 'Sound: ' + (d.sound ? 'On' : 'Off'), h = 'Vibration: ' + (d.haptics !== false ? 'On' : 'Off');
     $('btn-sound').textContent = t; $('pause-sound').textContent = t;
+    $('btn-haptics').textContent = h; $('pause-haptics').textContent = h;
+    $('btn-shake').textContent = 'Shake: ' + (d.shake !== false ? 'On' : 'Off');
   }
 
   // -------------------------------------------------------------- map
-  var mapBuilt = false, paths = {}, labels = {};
+  var mapBuilt = false, paths = {}, labels = {}, badges = {};
 
   function buildMapSvg() {
     var M = ZN.buildMap();
@@ -73,6 +76,11 @@
       t.textContent = c.short;
       svg.appendChild(t);
       labels[c.id] = t;
+      var b = document.createElementNS(SVGNS, 'text');
+      b.setAttribute('x', c.center[0].toFixed(1)); b.setAttribute('y', (c.center[1] - 8).toFixed(1));
+      b.setAttribute('class', 'threat-badge');
+      svg.appendChild(b);
+      badges[c.id] = b;
     });
     $('map-holder').appendChild(svg);
     ZN.mapSvg = svg;
@@ -98,8 +106,10 @@
     var M = ZN.MAP, d = Save.data;
     M.counties.forEach(function (c) {
       var st = Save.isCleared(c.id) ? 'cleared' : Save.isAvailable(c.id) ? 'available' : 'locked';
-      paths[c.id].setAttribute('class', 'county ' + st + (selected === c.id ? ' selected' : ''));
+      var th = Save.isThreatened(c.id);
+      paths[c.id].setAttribute('class', 'county ' + st + (th ? ' threatened' : '') + (selected === c.id ? ' selected' : ''));
       labels[c.id].setAttribute('class', 'county-label ' + st);
+      badges[c.id].textContent = th ? '⚠ ' + d.threats[c.id] : '';
     });
     $('map-coins').textContent = fmt(d.coins);
     $('map-level').textContent = 'Survivor Level ' + d.accLevel;
@@ -121,23 +131,28 @@
     selected = id;
     paths[id].classList.add('selected');
     if (!quiet) ZN.Audio.play('click');
-    var cleared = Save.isCleared(id), avail = Save.isAvailable(id), waves = Save.wavesFor(id);
-    var st = cleared ? 'cleared' : avail ? 'available' : 'locked';
+    var cleared = Save.isCleared(id), avail = Save.isAvailable(id), waves = Save.wavesFor(id), threat = Save.isThreatened(id);
+    var st = threat ? 'threatened' : cleared ? 'cleared' : avail ? 'available' : 'locked';
     $('cp-name').textContent = c.name;
     var tag = $('cp-status');
     tag.className = 'tag ' + st;
-    tag.textContent = cleared ? 'LIBERATED' : avail ? 'ATTACKABLE' : 'OVERRUN';
-    var tier = cleared ? waves - 1 : Save.clearedCount();
-    var threat = ['Low', 'Moderate', 'High', 'Severe', 'Extreme', 'Apocalyptic'][Math.min(5, Math.floor(tier / 4))];
+    tag.textContent = threat ? 'UNDER ATTACK' : cleared ? 'LIBERATED' : avail ? 'ATTACKABLE' : 'OVERRUN';
+    var tier = threat ? Save.clearedCount() : cleared ? waves - 1 : Save.clearedCount();
+    var boss = ZN.BOSSES[ZN.bossFor(c)];
+    var threatLvl = ['Low', 'Moderate', 'High', 'Severe', 'Extreme', 'Apocalyptic'][Math.min(5, Math.floor(tier / 4))];
     var neighbours = c.adj.map(function (n) { return ZN.MAP.byId[n].short; }).join(', ');
-    var info = '<b>' + waves + '</b> wave' + (waves > 1 ? 's' : '') + ' + horde boss · Threat: <b>' + threat + '</b><br>Borders: ' + neighbours;
+    var info = '<b>' + waves + '</b> wave' + (waves > 1 ? 's' : '') + ' + <b>' + boss.name + '</b> · Threat: <b>' + threatLvl + '</b><br>Borders: ' + neighbours;
     if (!avail) info += '<br><span style="color:#f99">Liberate a neighbouring county first.</span>';
-    if (cleared) info += '<br>Replay to farm coins and XP.';
+    if (threat) info += '<br><span style="color:#ff8080"><b>The horde is counter-attacking!</b> Win here within ' + Save.data.threats[id] + ' mission' + (Save.data.threats[id] > 1 ? 's' : '') + ' or it falls.</span>';
+    else if (cleared) info += '<br>Replay to farm coins and XP.';
     if (!Save.clearedCount()) info += '<br>Choose any county to begin your campaign.';
     $('cp-info').innerHTML = info;
     var go = $('cp-go');
     go.disabled = !avail;
-    go.textContent = cleared ? 'Replay Mission' : avail ? 'Liberate ' + c.short : 'Locked';
+    go.textContent = threat ? 'Defend ' + c.short : cleared ? 'Replay Mission' : avail ? 'Liberate ' + c.short : 'Locked';
+    var ch = ZN.characterById(Save.data.character), sv = $('cp-survivor');
+    sv.innerHTML = '<span class="sv-ico">' + ch.icon + '</span><span><b>' + ch.name + '</b> · ' + ch.title + '</span><span class="sv-change">Change ›</span>';
+    sv.onclick = function () { ZN.Audio.play('click'); show('survivors'); };
     $('county-panel').classList.remove('hidden');
   }
 
@@ -164,6 +179,35 @@
         if (d.coins < cost || maxed) return;
         d.coins -= cost; d.shop[item.id] = rank + 1; Save.save();
         ZN.Audio.play('coin'); renderShop();
+      };
+      row.appendChild(b);
+      list.appendChild(row);
+    });
+  }
+
+  // -------------------------------------------------------- survivors
+  function renderSurvivors() {
+    var list = $('survivor-list'), d = Save.data;
+    list.innerHTML = '';
+    $('surv-coins').textContent = fmt(d.coins);
+    list.appendChild(el('div', 'section-h', 'Choose who takes back Britain'));
+    ZN.CHARACTERS.forEach(function (ch) {
+      var owned = !!d.owned[ch.id], sel = d.character === ch.id, w = ZN.WEAPONS[ch.start];
+      var row = el('div', 'item' + (sel ? ' selected-surv' : ''));
+      row.appendChild(icon(ch.icon, sel ? '#e0b030' : '#3a414c'));
+      var body = el('div', 'body');
+      body.appendChild(el('div', 'name', ch.name + ' <span style="color:var(--muted);font-weight:600">· ' + ch.title + '</span>'));
+      body.appendChild(el('div', 'desc', 'Starts with ' + w.icon + ' <b>' + w.name + '</b>. ' + ch.perks));
+      row.appendChild(body);
+      var b;
+      if (sel) b = el('button', 'btn buy', 'Chosen');
+      else if (owned) b = el('button', 'btn buy', 'Select');
+      else { b = el('button', 'btn buy primary', '💰 ' + fmt(ch.cost)); b.disabled = d.coins < ch.cost; }
+      b.onclick = function () {
+        if (sel) return;
+        if (!owned) { if (d.coins < ch.cost) return; d.coins -= ch.cost; d.owned[ch.id] = true; ZN.Audio.play('coin'); }
+        else ZN.Audio.play('click');
+        d.character = ch.id; Save.save(); renderSurvivors();
       };
       row.appendChild(b);
       list.appendChild(row);
@@ -225,13 +269,13 @@
 
   // ---------------------------------------------------------- mission
   function startMission(id) {
-    var c = ZN.MAP.byId[id], cleared = Save.isCleared(id), waves = Save.wavesFor(id);
-    var tier = cleared ? waves - 1 : Save.clearedCount();
+    var c = ZN.MAP.byId[id], cleared = Save.isCleared(id), waves = Save.wavesFor(id), defend = Save.isThreatened(id);
+    var tier = defend ? Save.clearedCount() : cleared ? waves - 1 : Save.clearedCount();
     Save.data.lastCounty = id;
     show('game');
     $('hud-boss').classList.add('hidden');
     game = new ZN.Game($('game-canvas'), {
-      county: c, waves: waves, tier: tier, replay: cleared,
+      county: c, waves: waves, tier: tier, replay: cleared, defend: defend, character: Save.data.character,
       onHud: updateHud, onBanner: showBanner,
       onLevelUp: showLevelUp, onChest: showChest, onEnd: endMission
     });
@@ -252,6 +296,7 @@
     if (sig !== updateHud.sig) { updateHud.sig = sig; renderItems($('hud-items'), g); }
     if (g.boss && !g.boss.dead) {
       $('hud-boss').classList.remove('hidden');
+      $('hud-bossname').textContent = g.boss.def.name;
       $('hud-bossbar').style.width = Math.max(0, g.boss.hp / g.boss.maxHp * 100) + '%';
     } else $('hud-boss').classList.add('hidden');
   }
@@ -333,7 +378,8 @@
   function endMission(r) {
     var d = Save.data, g = game, county = g.county, firstClear = r.win && !Save.isCleared(county.id);
     var bonus = 0;
-    if (r.win) bonus = Math.round((40 + 20 * g.waves) * g.stat.greed * (firstClear ? 1 : 0.5));
+    var defending = g.opts.defend;
+    if (r.win) bonus = Math.round((40 + 20 * g.waves) * g.stat.greed * (firstClear || defending ? 1 : 0.5));
     var coins = Math.round(r.coins) + bonus;
     var accXp = r.xp + 30 * r.wavesDone + (firstClear ? 50 * g.waves : 0);
     d.coins += coins;
@@ -341,6 +387,7 @@
     if (r.win) d.stats.wins++;
     d.stats.bestLevel = Math.max(d.stats.bestLevel, r.level);
     if (firstClear) d.cleared[county.id] = g.waves;
+    var threats = Save.updateThreats(county.id, r.win);
     var gained = Save.addAccountXp(accXp);
     Save.save();
 
@@ -354,7 +401,7 @@
       ['Level reached', r.level],
       ['Coins collected', '💰 ' + fmt(r.coins)]
     ];
-    if (bonus) rows.push([firstClear ? 'Liberation bonus' : 'Replay bonus', '💰 ' + fmt(bonus)]);
+    if (bonus) rows.push([firstClear ? 'Liberation bonus' : defending ? 'Defence bonus' : 'Replay bonus', '💰 ' + fmt(bonus)]);
     rows.push(['Survivor XP', '+' + fmt(accXp)]);
     var html = rows.map(function (x) { return '<div class="res-row"><span>' + x[0] + '</span><b>' + x[1] + '</b></div>'; }).join('');
     gained.forEach(function (gl) {
@@ -366,6 +413,13 @@
       var newly = county.adj.filter(function (n) { return !Save.isCleared(n); }).map(function (n) { return ZN.MAP.byId[n].short; });
       if (newly.length) html += '<div class="unlock">🗺️ New fronts open: ' + newly.join(', ') + '</div>';
     }
+    if (threats.defended) html += '<div class="unlock">🛡️ <b>' + county.name + ' held!</b> The counter-attack is broken.</div>';
+    threats.fallen.forEach(function (id) { html += '<div class="warn-box">💀 <b>' + ZN.MAP.byId[id].name + ' has fallen</b> back to the horde.</div>'; });
+    if (threats.newThreat) html += '<div class="warn-box">⚠️ <b>Counter-attack on ' + ZN.MAP.byId[threats.newThreat].name + '!</b> Defend it within ' + ZN.THREAT_MISSIONS + ' missions or it falls.</div>';
+    Object.keys(d.threats).forEach(function (id) {
+      if (id !== threats.newThreat) html += '<div class="warn-box">⚠️ ' + ZN.MAP.byId[id].name + ' falls in ' + d.threats[id] + ' mission' + (d.threats[id] > 1 ? 's' : '') + '.</div>';
+    });
+    Save.save();
     $('res-body').innerHTML = html;
     overlay('ov-results', true);
   }
@@ -387,7 +441,7 @@
     }
     if (current === 'title') return false;
     if (current === 'map' && selected) { paths[selected].classList.remove('selected'); selected = null; $('county-panel').classList.add('hidden'); return true; }
-    show(current === 'shop' || current === 'armoury' ? prevScreen : 'title');
+    show(current === 'shop' || current === 'armoury' || current === 'survivors' ? prevScreen : 'title');
     return true;
   };
   ZN.onPause = function () { if (current === 'game') pauseGame(); };
@@ -406,6 +460,9 @@
     $('pause-resume').onclick = resumeGame;
     var toggleSound = function () { Save.data.sound = !Save.data.sound; Save.save(); updateSoundButtons(); };
     $('btn-sound').onclick = toggleSound; $('pause-sound').onclick = toggleSound;
+    var toggleHaptics = function () { Save.data.haptics = Save.data.haptics === false; Save.save(); updateSoundButtons(); ZN.haptic(40); };
+    $('btn-haptics').onclick = toggleHaptics; $('pause-haptics').onclick = toggleHaptics;
+    $('btn-shake').onclick = function () { Save.data.shake = Save.data.shake === false; Save.save(); updateSoundButtons(); };
     $('pause-quit').onclick = function () {
       confirmBox('Abandon mission?', 'You keep the coins and XP collected so far, but the county stays overrun.', function () {
         overlay('ov-pause', false);

@@ -7,6 +7,8 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowInsets;
@@ -52,7 +54,7 @@ public class MainActivity extends Activity {
 
         webView.setWebViewClient(new WebViewClient());
         webView.setWebChromeClient(new WebChromeClient());
-        webView.addJavascriptInterface(new SaveBridge(getSharedPreferences(PREFS, Context.MODE_PRIVATE)), "AndroidBridge");
+        webView.addJavascriptInterface(new SaveBridge(getSharedPreferences(PREFS, Context.MODE_PRIVATE), (Vibrator) getSystemService(Context.VIBRATOR_SERVICE)), "AndroidBridge");
 
         setContentView(webView);
         goImmersive();
@@ -132,9 +134,39 @@ public class MainActivity extends Activity {
     /** Exposed to JavaScript as window.AndroidBridge. */
     static class SaveBridge {
         private final SharedPreferences prefs;
+        private final Vibrator vibrator;
 
-        SaveBridge(SharedPreferences prefs) {
+        SaveBridge(SharedPreferences prefs, Vibrator vibrator) {
             this.prefs = prefs;
+            this.vibrator = vibrator;
+        }
+
+        /** pattern: "30" for a single buzz, or "60,40,120" for buzz/pause/buzz in milliseconds. */
+        @JavascriptInterface
+        @SuppressWarnings("deprecation")
+        public void vibrate(String pattern) {
+            if (vibrator == null || !vibrator.hasVibrator() || pattern == null) return;
+            try {
+                String[] parts = pattern.split(",");
+                if (parts.length == 1) {
+                    long ms = Math.min(500, Long.parseLong(parts[0].trim()));
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        vibrator.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE));
+                    } else {
+                        vibrator.vibrate(ms);
+                    }
+                } else {
+                    long[] timings = new long[parts.length + 1];
+                    for (int i = 0; i < parts.length; i++) timings[i + 1] = Math.min(500, Long.parseLong(parts[i].trim()));
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        vibrator.vibrate(VibrationEffect.createWaveform(timings, -1));
+                    } else {
+                        vibrator.vibrate(timings, -1);
+                    }
+                }
+            } catch (RuntimeException ignored) {
+                // Bad pattern or vibrator unavailable: skip the buzz.
+            }
         }
 
         @JavascriptInterface

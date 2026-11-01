@@ -55,6 +55,20 @@
     click:   function () { tone(700, 0.04, 'square', 0.05); }
   };
 
+  var lastBuzz = 0;
+  // Vibration: native bridge on Android, navigator.vibrate elsewhere
+  ZN.haptic = function (pattern) {
+    if (ZN.Save.data.haptics === false) return;
+    var now = performance.now();
+    if (now - lastBuzz < 70) return;
+    lastBuzz = now;
+    try {
+      if (window.AndroidBridge && window.AndroidBridge.vibrate) {
+        window.AndroidBridge.vibrate(Array.isArray(pattern) ? pattern.join(',') : String(pattern));
+      } else if (navigator.vibrate) navigator.vibrate(pattern);
+    } catch (e) { /* vibration unavailable */ }
+  };
+
   ZN.Audio = {
     unlock: function () { if (ensure() && ctx.state === 'suspended') ctx.resume(); },
     play: function (name, minGapMs) {

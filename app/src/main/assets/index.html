@@ -19,12 +19,15 @@
       </div>
       <div class="menu">
         <button class="btn big primary" data-go="map">Campaign</button>
+        <button class="btn big" data-go="survivors">Survivors</button>
         <button class="btn big" data-go="shop">Upgrades</button>
         <button class="btn big" data-go="armoury">Armoury</button>
         <button class="btn big" data-go="help">How to Play</button>
       </div>
       <div class="title-foot">
         <button class="btn small" id="btn-sound">Sound: On</button>
+        <button class="btn small" id="btn-haptics">Vibration: On</button>
+        <button class="btn small" id="btn-shake">Shake: On</button>
         <button class="btn small danger" id="btn-reset">Reset Save</button>
       </div>
     </div>
@@ -44,11 +47,13 @@
     <div id="map-legend">
       <span><i class="lg cleared"></i>Liberated</span>
       <span><i class="lg available"></i>Attackable</span>
+      <span><i class="lg threatened"></i>Under attack</span>
       <span><i class="lg locked"></i>Overrun</span>
     </div>
     <div id="county-panel" class="panel hidden">
       <div class="cp-head"><div id="cp-name">County</div><div id="cp-status" class="tag">Status</div></div>
       <div id="cp-info" class="cp-info"></div>
+      <div id="cp-survivor" class="cp-survivor"></div>
       <button class="btn big primary" id="cp-go">Defend</button>
     </div>
   </section>
@@ -61,6 +66,16 @@
       <div class="coins"><span>💰</span><span id="shop-coins">0</span></div>
     </header>
     <div class="scroll-list" id="shop-list"></div>
+  </section>
+
+  <!-- Survivors -->
+  <section id="screen-survivors" class="screen">
+    <header class="topbar">
+      <button class="btn icon" data-go="back">‹</button>
+      <div class="screen-title">Survivors</div>
+      <div class="coins"><span>💰</span><span id="surv-coins">0</span></div>
+    </header>
+    <div class="scroll-list" id="survivor-list"></div>
   </section>
 
   <!-- Armoury -->
@@ -85,6 +100,10 @@
       <p>Touch and drag anywhere to move. Your weapons fire automatically. (On a keyboard: WASD or arrow keys.)</p>
       <h3>Missions</h3>
       <p>Pick any county for your first mission. After that you can only attack counties that border one you have liberated. Each new county has one more wave than the last, and zombies grow tougher the further you push. Survive every wave, then slay the horde boss to liberate the county.</p>
+      <h3>Counter-attacks</h3>
+      <p>The horde fights back. A liberated county bordering overrun land may come under attack (it flashes red on the map). Defend it by winning a mission there within 3 missions, or it falls back to the zombies.</p>
+      <h3>Survivors and bosses</h3>
+      <p>Buy new survivors with coins: each starts with a different weapon and perks. Every region has its own horde boss, from Nessie in the Highlands to the Stonehenge Druid. Watch for red warning circles: get out before the slam lands!</p>
       <h3>Levelling up in a mission</h3>
       <p>Zombies drop XP gems. Each level lets you pick a new weapon, a passive item, or an upgrade. You can carry 6 weapons and 6 passives. Elite zombies drop treasure chests.</p>
       <h3>Evolutions</h3>
@@ -106,7 +125,7 @@
         <button class="btn icon pause" id="btn-pause">II</button>
       </div>
       <div id="hud-items"></div>
-      <div id="hud-boss" class="hidden"><div class="boss-name">The Abomination</div><div class="bar boss"><div id="hud-bossbar" class="bar-fill boss"></div></div></div>
+      <div id="hud-boss" class="hidden"><div class="boss-name" id="hud-bossname">The Abomination</div><div class="bar boss"><div id="hud-bossbar" class="bar-fill boss"></div></div></div>
     </div>
     <div id="banner" class="banner"><div id="banner-title"></div><div id="banner-sub"></div></div>
   </section>
@@ -134,6 +153,7 @@
       <div id="pause-items" class="pause-items"></div>
       <button class="btn big primary" id="pause-resume">Resume</button>
       <button class="btn big" id="pause-sound">Sound: On</button>
+      <button class="btn big" id="pause-haptics">Vibration: On</button>
       <button class="btn big danger" id="pause-quit">Abandon Mission</button>
     </div>
   </div>
@@ -161,6 +181,7 @@
 <script src="js/map.js"></script>
 <script src="js/save.js"></script>
 <script src="js/audio.js"></script>
+<script src="js/art.js"></script>
 <script src="js/game.js"></script>
 <script src="js/weapons.js"></script>
 <script src="js/ui.js"></script>

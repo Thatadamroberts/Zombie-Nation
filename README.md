@@ -6,9 +6,15 @@ A Vampire Survivors-style Android game set across a zombie-overrun United Kingdo
 
 - **Campaign map**: 69 counties and regions across England, Wales, Scotland and Northern Ireland (with ferry links to Northern Ireland). Your first mission can be anywhere. After that you can only attack counties that border one you've already liberated.
 - **Waves**: each new county has one more wave than the last (capped at 20). Each wave is 40 seconds (the first mission's single wave is 60s), and you finish by killing the horde boss. Zombies get tougher with every wave and every county you take.
-- **Enemies**: Shamblers, Runners, Crawler swarms, Brutes, acid-spitting Spitters, exploding Bloaters, treasure-carrying Elites, and The Abomination (a boss that charges and summons).
+- **Enemies**: Shamblers, Runners, Crawler swarms, Brutes, acid-spitting Spitters, exploding Bloaters, Red Kites, and treasure-carrying Elites.
+- **Regional horde bosses**, each with its own moves (charge, summon, acid volleys, underground/underwater dives, telegraphed ground slams):
+  The Beefeater Colossus (London), The Stonehenge Druid (South West), The Red Kite Matriarch (Wales), Nessie (Highlands), The Causeway Golem (Northern Ireland), The Fen Bog Beast (East), The Pit Wraith (North), The Abomination (elsewhere).
+- **Landmarks** in the battlefield: Big Ben, Stonehenge, a Cornish lighthouse, the Angel of the North, the Giant's Causeway, a Highland loch, castles, windmills, pubs, pitheads and the white cliffs.
+- **Survivors** (bought with coins), each with a starting weapon and perks: Tommy (pistol), Bert the Beefeater (halberd), Rhiannon the Welsh Shepherd (molotov), Big Rab the Glaswegian Bouncer (cheese aura), Jory the Cornish Fisherman (harpoon), Morag the Highland Piper (bagpipes).
+- **Counter-attacks**: after a mission, the horde may attack a liberated county on the frontier. Win a mission there within 3 missions or it falls back to the zombies.
+- **Feel**: screen shake, slow-motion on evolutions and boss kills, and vibration on hits, level-ups and big moments. Each can be toggled.
 - **In-mission levelling**: collect XP gems, then pick new weapons, passives or upgrades. You get 6 weapon slots and 6 passive slots.
-- **Weapons**: Service Pistol, Ice Sword, Fire Sword, Electric Sword, Crossbow, Molotov, Stinking Bishop (cheese aura), Hubcaps (orbit), Lightning Rod, Flamethrower.
+- **Weapons**: Service Pistol, Ice Sword, Fire Sword, Electric Sword, Crossbow, Molotov, Stinking Bishop (cheese aura), Hubcaps (orbit), Lightning Rod, Flamethrower, Cricket Bat, Bagpipes, Beefeater Halberd, Harpoon Gun.
 - **Evolutions**:
   | Recipe | Result |
   |---|---|
@@ -20,6 +26,12 @@ A Vampire Survivors-style Android game set across a zombie-overrun United Kingdo
   | Hubcaps + Brolly | Buzzsaw Halo |
   | Lightning Rod + Pocket Watch | Thunderstorm |
   | Flamethrower + Union Flag Cape | Dragon's Breath |
+  | Crossbow + Electric Sword (both max) | Tesla Bolts |
+  | Molotov + Ice Sword (both max) | Steam Bombs |
+  | Cricket Bat + Wellies | Six-Hitter |
+  | Bagpipes + Lucky Horseshoe | Highland Lament |
+  | Beefeater Halberd + Brolly | Yeoman's Wrath |
+  | Harpoon Gun + Fridge Magnet | Kraken's Reach |
 - **Coins** (kept even if you die) buy permanent stat upgrades: Might, Vitality, Armour, Recovery, Haste, Reach, Greed, Second Wind and more.
 - **Survivor level** (account XP from every mission) unlocks new weapons and passives, which can then turn up in level-up choices.
 
@@ -36,7 +48,8 @@ app/src/main/assets/            the game (HTML5 canvas, plain JS, no build step)
   js/map.js      UK map: Voronoi county shapes clipped to the coastline, adjacency
   js/game.js     mission engine (waves, zombies, pickups, rendering)
   js/weapons.js  weapon behaviours
-  js/ui.js       menus, map, shop, armoury, HUD
+  js/art.js      landmarks, regional bosses, birds, survivor hats
+  js/ui.js       menus, map, survivors, shop, armoury, HUD
   js/save.js     save data (SharedPreferences on Android, localStorage in a browser)
 app/src/main/java/.../MainActivity.java   full-screen WebView host with no dependencies
 ```
