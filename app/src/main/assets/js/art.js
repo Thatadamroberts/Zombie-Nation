@@ -329,6 +329,65 @@
     }
   };
 
+  // ------------------------------------------------ mini boss accessories
+  // Drawn over the brute sprite. Sprite: height r*2.9, feet at y + r*0.95, head near the top-left (faces right).
+  ZN.drawAccessory = function (g, ctx, e) {
+    var r = e.r, H = r * 2.9, feet = e.y + r * 0.95, flip = Math.cos(e.dir || 0) < 0 ? -1 : 1;
+    var hx = e.x - flip * H * 0.09, hy = feet - H * 0.8, bx = e.x, by = feet - H * 0.45;
+    ctx.save();
+    switch (e.def.accessory) {
+      case 'butcher':
+        ctx.fillStyle = 'rgba(240,240,235,0.9)'; ctx.fillRect(bx - H * 0.18, by - H * 0.08, H * 0.36, H * 0.3);
+        ctx.fillStyle = '#9a1a1a'; ctx.fillRect(bx - H * 0.1, by, H * 0.08, H * 0.06); ctx.fillRect(bx + H * 0.04, by + H * 0.1, H * 0.06, H * 0.05);
+        ctx.fillStyle = '#6a4a2a'; ctx.fillRect(bx + flip * H * 0.3, by - H * 0.05, flip * H * 0.05, H * 0.12);
+        ctx.fillStyle = '#d0d4da'; ctx.fillRect(bx + flip * H * 0.28, by - H * 0.25, flip * H * 0.2, H * 0.2);
+        break;
+      case 'plague':
+        ctx.fillStyle = '#1a1a1a'; ctx.beginPath(); ctx.ellipse(hx, hy - H * 0.12, H * 0.24, H * 0.06, 0, 0, TAU); ctx.fill();
+        ctx.fillRect(hx - H * 0.12, hy - H * 0.3, H * 0.24, H * 0.18);
+        ctx.fillStyle = '#e8e0c8'; ctx.beginPath(); ctx.moveTo(hx + flip * H * 0.08, hy - H * 0.04); ctx.lineTo(hx + flip * H * 0.34, hy + H * 0.06); ctx.lineTo(hx + flip * H * 0.08, hy + H * 0.08); ctx.fill();
+        ctx.fillStyle = '#7dff4a'; ctx.beginPath(); ctx.arc(hx + flip * H * 0.05, hy - H * 0.02, H * 0.03, 0, TAU); ctx.fill();
+        break;
+      case 'horseman':
+        ctx.fillStyle = '#14101c'; ctx.beginPath(); ctx.arc(hx, hy, H * 0.17, 0, TAU); ctx.fill();
+        for (var f = 0; f < 3; f++) { ctx.fillStyle = 'rgba(255,' + (90 + f * 50) + ',20,0.8)'; ctx.beginPath(); ctx.arc(hx + Math.sin(g.time * 9 + f) * 4, hy - H * 0.08 - f * H * 0.06, H * (0.08 - f * 0.02), 0, TAU); ctx.fill(); }
+        ctx.fillStyle = '#e07a10'; ctx.beginPath(); ctx.ellipse(bx - flip * H * 0.3, by + H * 0.05, H * 0.12, H * 0.1, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#2a1a00'; ctx.fillRect(bx - flip * H * 0.34, by + H * 0.02, H * 0.03, H * 0.03); ctx.fillRect(bx - flip * H * 0.27, by + H * 0.02, H * 0.03, H * 0.03);
+        ctx.fillStyle = '#ffd23a'; ctx.fillRect(bx - flip * H * 0.33, by + H * 0.08, H * 0.08, H * 0.02);
+        break;
+      case 'witch':
+        ctx.fillStyle = '#1a2a1a'; ctx.beginPath(); ctx.ellipse(hx, hy - H * 0.1, H * 0.26, H * 0.05, 0, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(hx - H * 0.14, hy - H * 0.11); ctx.lineTo(hx - flip * H * 0.12, hy - H * 0.52); ctx.lineTo(hx + H * 0.14, hy - H * 0.11); ctx.fill();
+        ctx.fillStyle = '#7dff4a'; ctx.fillRect(hx - H * 0.13, hy - H * 0.16, H * 0.26, H * 0.04);
+        break;
+      case 'vicar':
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(hx - H * 0.08, hy + H * 0.13, H * 0.16, H * 0.04);
+        ctx.fillStyle = '#d0b040'; ctx.fillRect(bx - H * 0.015, by - H * 0.02, H * 0.03, H * 0.14); ctx.fillRect(bx - H * 0.05, by + H * 0.02, H * 0.1, H * 0.03);
+        ctx.fillStyle = '#111'; ctx.beginPath(); ctx.ellipse(hx, hy - H * 0.1, H * 0.2, H * 0.05, 0, 0, TAU); ctx.fill();
+        ctx.fillRect(hx - H * 0.11, hy - H * 0.2, H * 0.22, H * 0.1);
+        break;
+      case 'hooligan':
+        for (var sI = 0; sI < 5; sI++) { ctx.fillStyle = sI % 2 ? '#ffffff' : '#c8102e'; ctx.fillRect(hx - H * 0.16 + sI * H * 0.065, hy + H * 0.12, H * 0.065, H * 0.06); }
+        ctx.fillStyle = '#c8102e'; ctx.fillRect(hx - flip * H * 0.04, hy + H * 0.15, H * 0.06, H * 0.2);
+        ctx.fillStyle = '#1a1a1a'; ctx.beginPath(); ctx.arc(hx, hy - H * 0.06, H * 0.14, Math.PI, 0); ctx.fill();
+        break;
+      case 'rugby':
+        ctx.fillStyle = '#2a2a2a'; ctx.beginPath(); ctx.arc(hx, hy - H * 0.02, H * 0.15, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(bx - H * 0.18, by - H * 0.05, H * 0.36, H * 0.04);
+        ctx.fillStyle = '#8a4a1a'; ctx.beginPath(); ctx.ellipse(bx - flip * H * 0.26, by + H * 0.06, H * 0.12, H * 0.07, flip * 0.5, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(bx - flip * H * 0.3, by + H * 0.06); ctx.lineTo(bx - flip * H * 0.22, by + H * 0.06); ctx.stroke();
+        break;
+    }
+    ctx.restore();
+  };
+
+  ZN.drawEnrage = function (g, ctx, e) {
+    var pulse = 0.35 + Math.sin(g.time * 10) * 0.15, R = e.r * 1.8;
+    var gr = ctx.createRadialGradient(e.x, e.y, e.r * 0.4, e.x, e.y, R);
+    gr.addColorStop(0, 'rgba(255,40,20,' + pulse + ')'); gr.addColorStop(1, 'rgba(255,40,20,0)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(e.x, e.y - (e.leapZ || 0), R, 0, TAU); ctx.fill();
+  };
+
   // --------------------------------------------------------- survivor hats
   ZN.drawHat = function (ctx, ch, x, y) {
     ctx.fillStyle = ch.hatColor;

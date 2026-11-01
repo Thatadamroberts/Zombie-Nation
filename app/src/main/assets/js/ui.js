@@ -165,7 +165,9 @@
     var boss = ZN.BOSSES[ZN.bossFor(c)];
     var threatLvl = ['Low', 'Moderate', 'High', 'Severe', 'Extreme', 'Apocalyptic'][Math.min(5, Math.floor(tier / 4))];
     var neighbours = c.adj.map(function (n) { return ZN.MAP.byId[n].short; }).join(', ');
-    var info = '<b>' + waves + '</b> wave' + (waves > 1 ? 's' : '') + ' + <b>' + boss.name + '</b> · Threat: <b>' + threatLvl + '</b><br>Borders: ' + neighbours;
+    var trait = ZN.TRAITS[ZN.traitFor(c)];
+    var info = '<b>' + waves + '</b> wave' + (waves > 1 ? 's' : '') + ' + <b>' + boss.name + '</b> · Threat: <b>' + threatLvl + '</b>' +
+      '<br>' + trait.icon + ' <b>' + trait.name + '</b>: ' + trait.desc + '<br>Borders: ' + neighbours;
     if (!avail) info += '<br><span style="color:#f99">Liberate a neighbouring county first.</span>';
     if (threat) info += '<br><span style="color:#ff8080"><b>The horde is counter-attacking!</b> Win here within ' + Save.data.threats[id] + ' mission' + (Save.data.threats[id] > 1 ? 's' : '') + ' or it falls.</span>';
     else if (cleared) info += '<br>Replay to farm coins and XP.';
@@ -317,7 +319,8 @@
     var body = $('daily-body'), dl = Save.daily(), c = dl.county, boss = ZN.BOSSES[ZN.bossFor(c)];
     $('daily-coins').textContent = fmt(Save.data.coins);
     var html = '<div class="daily-card"><div class="section-h" style="margin:0 0 6px">' + new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) + '</div>' +
-      '<h2>' + c.name + '</h2><div class="desc" style="color:var(--muted)">' + ZN.DAILY_WAVES + ' waves + ' + boss.name + '</div></div>' +
+      '<h2>' + c.name + '</h2><div class="desc" style="color:var(--muted)">' + ZN.DAILY_WAVES + ' waves + ' + boss.name + '<br>' +
+      ZN.TRAITS[ZN.traitFor(c)].icon + ' ' + ZN.TRAITS[ZN.traitFor(c)].name + '</div></div>' +
       '<div class="daily-card"><div class="section-h" style="margin:0 0 4px">Today\'s twists</div>' +
       dl.mods.map(function (m) { var md = ZN.DAILY_MODS[m]; return '<div class="mod"><div class="mi">' + md.icon + '</div><div><b>' + md.name + '</b><div class="desc" style="color:var(--muted)">' + md.desc + '</div></div></div>'; }).join('') +
       '</div><div class="daily-card">' + (dl.done ? '✅ <b>Completed today!</b> Come back tomorrow for a new challenge. You can still replay it for coins and XP.' :
@@ -430,10 +433,13 @@
     $('hud-coins').textContent = fmt(g.runCoins);
     var sig = g.weapons.map(function (w) { return w.id + w.level; }).join() + '|' + g.passives.map(function (q) { return q.id + q.level; }).join();
     if (sig !== updateHud.sig) { updateHud.sig = sig; renderItems($('hud-items'), g); }
-    if (g.boss && !g.boss.dead) {
+    var bb = g.boss && !g.boss.dead ? g.boss : g.mini && !g.mini.dead ? g.mini : null;
+    if (bb) {
       $('hud-boss').classList.remove('hidden');
-      $('hud-bossname').textContent = g.boss.def.name;
-      $('hud-bossbar').style.width = Math.max(0, g.boss.hp / g.boss.maxHp * 100) + '%';
+      $('hud-bossname').textContent = bb.def.name + (bb.enraged ? ' · ENRAGED' : '');
+      $('hud-bossname').style.color = bb.def.mini ? '#d07aff' : '#ff6b6b';
+      $('hud-bossbar').style.width = Math.max(0, bb.hp / bb.maxHp * 100) + '%';
+      $('hud-bossbar').style.background = bb.def.mini ? 'linear-gradient(90deg,#6a2a9a,#d07aff)' : '';
     } else $('hud-boss').classList.add('hidden');
   }
 

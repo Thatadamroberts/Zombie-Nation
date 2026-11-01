@@ -692,3 +692,54 @@ ZN.DAILY_MODS = {
 };
 ZN.DAILY_WAVES = 5;
 ZN.DAILY_REWARD = 300;
+
+// ---------------------------------------------------------------------------
+// County traits: every county has a signature twist (picked by region, fixed per county)
+// ---------------------------------------------------------------------------
+ZN.TRAITS = {
+  graveyard: { name: 'Restless Graves',    icon: '⚰️', desc: 'Every so often the dead burst from the ground all around you.' },
+  fog:       { name: 'Sea Fret',           icon: '🌫️', desc: 'Thick mist rolls in: you can only see the horde up close.' },
+  night:     { name: 'Blackout',           icon: '🌑', desc: 'The power is out. Fight by torchlight; +15% XP.' },
+  rats:      { name: 'Crawler Infestation', icon: '🐀', desc: 'Crawler swarms come twice as often, from the very first wave.' },
+  spitters:  { name: 'Spitter Nest',       icon: '🤮', desc: 'Acid-spitting zombies infest the area from the start.' },
+  brutes:    { name: 'Brute Squad',        icon: '🦍', desc: 'Hulking brutes appear from wave one. They drop extra XP.' },
+  bloaters:  { name: 'Gas Leak',           icon: '☣️', desc: 'Bloaters everywhere, and their explosions are bigger.' },
+  bog:       { name: 'Boggy Ground',       icon: '🟫', desc: 'Peat bogs slow down anything that wades through them, you included.' },
+  storm:     { name: 'Thunderstorm',       icon: '⛈️', desc: 'Lightning strikes the battlefield. Watch the warning circles!' },
+  treasure:  { name: 'Hidden Hoard',       icon: '💰', desc: 'Looted gold everywhere: zombies drop far more coins.' },
+  supply:    { name: 'Supply Drops',       icon: '📦', desc: 'Army supply crates: power-ups drop three times as often.' }
+};
+ZN.REGION_TRAITS = {
+  city:  ['night', 'bloaters', 'rats', 'supply', 'spitters'],
+  se:    ['graveyard', 'treasure', 'rats', 'supply', 'fog'],
+  sw:    ['fog', 'storm', 'graveyard', 'treasure'],
+  east:  ['bog', 'fog', 'rats', 'spitters'],
+  mid:   ['brutes', 'bloaters', 'supply', 'graveyard'],
+  north: ['brutes', 'night', 'storm', 'bloaters'],
+  wales: ['storm', 'fog', 'bog', 'graveyard'],
+  scot:  ['storm', 'brutes', 'graveyard', 'night'],
+  high:  ['fog', 'storm', 'bog'],
+  ni:    ['storm', 'graveyard', 'treasure', 'bog']
+};
+ZN.COUNTY_TRAIT = { london: 'night', cambs: 'bog', lincs: 'bog', norfolk: 'bog', highland: 'fog', cornwall: 'fog',
+  kent: 'treasure', antrim: 'storm', durham: 'brutes', manchester: 'rats', westmids: 'bloaters', lanark: 'night',
+  essex: 'spitters', notts: 'spitters', merseyside: 'spitters' };
+ZN.traitFor = function (c) {
+  if (ZN.COUNTY_TRAIT[c.id]) return ZN.COUNTY_TRAIT[c.id];
+  var list = ZN.REGION_TRAITS[c.region] || ['graveyard'], h = 7;
+  for (var i = 0; i < c.id.length; i++) h = (h * 31 + c.id.charCodeAt(i)) >>> 0;
+  return list[h % list.length];
+};
+
+// ---------------------------------------------------------------------------
+// Mini bosses: lieutenants that end each wave (and appear mid-way in one-wave missions)
+// ---------------------------------------------------------------------------
+ZN.MINIBOSSES = {
+  butcher:  { name: 'The Butcher of Smithfield', color: '#8a3a3a', skin: '#c48a7a', accessory: 'butcher', abilities: ['charge', 'slam'], minion: 'runner' },
+  plague:   { name: 'The Plague Doctor', color: '#2a2a2a', skin: '#8a9a7a', accessory: 'plague', abilities: ['poison', 'summon'], minion: 'crawler' },
+  horseman: { name: 'The Headless Horseman', color: '#3a2a4a', skin: '#7a6a8a', accessory: 'horseman', abilities: ['charge', 'charge', 'pounce'], minion: 'runner', speed: 58 },
+  witch:    { name: 'The Bog Witch', color: '#3a5a3a', skin: '#8ab07a', accessory: 'witch', abilities: ['homing', 'poison'], minion: 'spitter', shot: '#7dff4a' },
+  vicar:    { name: 'The Unholy Vicar', color: '#1e1e26', skin: '#b0a8a0', accessory: 'vicar', abilities: ['heal', 'frenzy', 'summon'], minion: 'shambler' },
+  hooligan: { name: 'The Hooligan Firm Boss', color: '#c8202e', skin: '#d0a080', accessory: 'hooligan', abilities: ['frenzy', 'summon', 'charge'], minion: 'runner' },
+  rugby:    { name: 'The Rugby Lock', color: '#2a4a8a', skin: '#c89a7a', accessory: 'rugby', abilities: ['pounce', 'slam'], minion: 'brute', speed: 50 }
+};

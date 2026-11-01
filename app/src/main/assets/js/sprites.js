@@ -129,7 +129,7 @@
     ]
   };
   var SHAPE = { shambler: ['shambler', 'walk'], runner: ['runner', 'run'], crawler: ['crawler', 'crawl'], brute: ['brute', 'brute'],
-    elite: ['brute', 'brute'], spitter: ['spitter', 'walk'], bloater: ['bloater', 'stubby'] };
+    elite: ['brute', 'brute'], mini: ['brute', 'brute'], spitter: ['spitter', 'walk'], bloater: ['bloater', 'stubby'] };
 
   // Hat overlays for the player sprite: row -> pattern ('.' keeps the base pixel)
   var HATS = {
