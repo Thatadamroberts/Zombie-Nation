@@ -16,7 +16,7 @@
     g.projectiles.push({ x: g.player.x, y: g.player.y, vx: Math.cos(ang) * o.speed, vy: Math.sin(ang) * o.speed,
       r: o.r, dmg: o.dmg, pierce: o.pierce, life: o.life, hit: {}, kind: o.kind, color: o.color, kb: o.kb || 0,
       burn: o.burn, slow: o.slow, freeze: o.freeze, silent: o.silent, grow: o.grow, drag: o.drag, maxLife: o.life,
-      speed: o.speed, boomerang: o.boomerang, chain: o.chain });
+      speed: o.speed, boomerang: o.boomerang, chain: o.chain, homing: o.homing, bounce: o.bounce });
   }
 
   // Melee arc. Returns enemies hit.
@@ -151,7 +151,125 @@
     ZN.Audio.play('zap', 120);
   }
 
+  // Horizontal lash to one or both sides (Bike Chain)
+  function lash(g, w, s, dt, color) {
+    if (!ready(g, w, s.cd, dt)) return;
+    var p = g.player, side = p.fx >= 0 ? 1 : -1, sides = s.both ? [side, -side] : [side];
+    sides.forEach(function (sd, i) {
+      var L = s.len * g.stat.area, y = p.y - 4, x2 = p.x + sd * L, hits = 0, W = s.width * g.stat.area;
+      beam(g, p.x, y, x2, y, W * 0.5 + 4, function (e) { g.damage(e, s.dmg, { kb: 60, kx: sd, ky: 0 }); hits++; });
+      if (s.heal && hits) p.hp = Math.min(g.stat.maxHp, p.hp + s.heal * hits);
+      g.effects.push({ kind: 'lash', x1: p.x, y: y, x2: x2, w: W, t: -i * 0.08, T: 0.28, color: color });
+    });
+    ZN.Audio.play('slash', 100);
+  }
+
+  function mines(g, w, s, dt, cluster) {
+    var p = g.player, R = s.radius * g.stat.area;
+    w.mines = w.mines || [];
+    w.t -= dt;
+    if (w.t <= 0 && w.mines.length < s.maxMines) {
+      w.t = s.cd * g.stat.cooldown;
+      var n = cluster ? 3 : 1;
+      for (var k = 0; k < n; k++) w.mines.push({ x: p.x - p.fx * 14 + (cluster ? rand(-40, 40) : 0), y: p.y + 10 + (cluster ? rand(-30, 30) : 0), arm: 0.5 });
+    }
+    var keep = [];
+    for (var i = 0; i < w.mines.length; i++) {
+      var m = w.mines[i];
+      m.arm -= dt;
+      var trig = false;
+      if (m.arm <= 0) g.queryEnemies(m.x, m.y, 14, function () { trig = true; });
+      if (!trig) { keep.push(m); continue; }
+      g.queryEnemies(m.x, m.y, R, function (e) { g.damage(e, s.dmg, { kb: 120, kx: e.x - m.x, ky: e.y - m.y, burn: s.burn, silent: true }); });
+      g.effects.push({ kind: 'boom', x: m.x, y: m.y, r: R, t: 0, T: 0.35, color: cluster ? '#ffb03a' : '#ff8a2a' });
+      g.emit(m.x, m.y, 6, '#5a4a3a', 160, 0.5, 3);
+      g.shake = Math.max(g.shake, 3);
+      ZN.Audio.play('boom', 90);
+    }
+    w.mines = keep;
+  }
+
+  function pigeons(g, w, s, dt) {
+    if (!ready(g, w, s.cd, dt)) return;
+    var n = s.amount + g.stat.amount, base = facing(g);
+    for (var i = 0; i < n; i++) {
+      shoot(g, base + rand(-1.2, 1.2), { speed: 250, r: 7, dmg: s.dmg, pierce: s.pierce, life: 3.2, kind: 'pigeon', kb: 30, homing: true, silent: true });
+    }
+  }
+
+  function sweep(g, w, s, dt) {
+    var p = g.player, L = s.len * g.stat.area;
+    w.ang = (w.ang || 0) + s.spin * dt; w.L = L; w.beams = s.beams;
+    w.t -= dt;
+    if (w.t > 0) return;
+    w.t = 0.12;
+    for (var b = 0; b < s.beams; b++) {
+      var a = w.ang + b * TAU / s.beams;
+      beam(g, p.x, p.y - 6, p.x + Math.cos(a) * L, p.y - 6 + Math.sin(a) * L, 10 * g.stat.area, function (e) {
+        g.damage(e, s.dmg, { burn: s.burn, silent: true, color: '#fff3a0' });
+      });
+    }
+  }
+
+  function balls(g, w, s, dt, fast) {
+    if (w.t > 0) { w.t -= dt; return; }
+    var p = g.player, tgt = g.nearestEnemy(p.x, p.y, 380);
+    if (!tgt) return;
+    w.t = s.cd * g.stat.cooldown;
+    var n = s.amount + g.stat.amount, base = Math.atan2(tgt.y - p.y, tgt.x - p.x);
+    for (var i = 0; i < n; i++) shoot(g, base + (i - (n - 1) / 2) * 0.25, { speed: fast ? 640 : 480, r: fast ? 6 : 5, dmg: s.dmg, pierce: s.bounces + 1,
+      life: 2.5, kind: 'ball', kb: 40, bounce: true, silent: true });
+    ZN.Audio.play('shoot', 90);
+  }
+
+  function gnomes(g, w, s, dt, army) {
+    var p = g.player;
+    w.turrets = w.turrets || [];
+    w.t -= dt;
+    if (w.t <= 0 && w.turrets.length < s.count) {
+      w.t = s.cd * g.stat.cooldown;
+      var a = Math.random() * TAU;
+      w.turrets.push({ x: p.x + Math.cos(a) * 30, y: p.y + Math.sin(a) * 20, life: s.life * g.stat.duration, fireT: 0.3, slot: w.turrets.length });
+    }
+    var keep = [];
+    for (var i = 0; i < w.turrets.length; i++) {
+      var t = w.turrets[i];
+      t.life -= dt;
+      if (t.life <= 0) { g.emit(t.x, t.y, 6, '#c8202e', 80, 0.4, 3); continue; }
+      if (army) {
+        var ang = g.time * 0.8 + t.slot * TAU / s.count, tx = p.x + Math.cos(ang) * 55, ty = p.y + Math.sin(ang) * 40;
+        t.x += (tx - t.x) * Math.min(1, dt * 6); t.y += (ty - t.y) * Math.min(1, dt * 6);
+      }
+      t.fireT -= dt;
+      if (t.fireT <= 0) {
+        var tg = g.nearestEnemy(t.x, t.y, 270);
+        if (tg) {
+          t.fireT = s.fire * g.stat.cooldown;
+          var aa = Math.atan2(tg.y - t.y, tg.x - t.x), v = 520;
+          g.projectiles.push({ x: t.x, y: t.y - 10, vx: Math.cos(aa) * v, vy: Math.sin(aa) * v, r: 4, dmg: s.dmg, pierce: 1, life: 0.8, maxLife: 0.8,
+            hit: {}, kind: 'bullet', color: '#9be03a', kb: 15, silent: true });
+          t.recoil = 0.1;
+        } else t.fireT = 0.2;
+      }
+      if (t.recoil > 0) t.recoil -= dt;
+      keep.push(t);
+    }
+    w.turrets = keep;
+  }
+
   ZN.WEAPON_LOGIC = {
+    bikeChain: function (g, w, s, dt) { lash(g, w, s, dt, '#c8d0d8'); },
+    chainReaper: function (g, w, s, dt) { lash(g, w, s, dt, '#ff7a7a'); },
+    landMine: function (g, w, s, dt) { mines(g, w, s, dt, false); },
+    minefield: function (g, w, s, dt) { mines(g, w, s, dt, true); },
+    pigeon: function (g, w, s, dt) { pigeons(g, w, s, dt); },
+    pigeonSquadron: function (g, w, s, dt) { pigeons(g, w, s, dt); },
+    lighthouse: function (g, w, s, dt) { sweep(g, w, s, dt); },
+    beacon: function (g, w, s, dt) { sweep(g, w, s, dt); },
+    cricketBall: function (g, w, s, dt) { balls(g, w, s, dt, false); },
+    fastBowler: function (g, w, s, dt) { balls(g, w, s, dt, true); },
+    gnome: function (g, w, s, dt) { gnomes(g, w, s, dt, false); },
+    gnomeArmy: function (g, w, s, dt) { gnomes(g, w, s, dt, true); },
     pistol: function (g, w, s, dt) {
       if (w.t > 0) { w.t -= dt; return; }
       var p = g.player, tgt = g.nearestEnemy(p.x, p.y, 420);
@@ -359,7 +477,45 @@
     }
   }
 
+  function drawMines(g, ctx, w) {
+    if (!w.mines) return;
+    w.mines.forEach(function (m) {
+      ctx.fillStyle = '#3a4a2a'; ctx.beginPath(); ctx.ellipse(m.x, m.y, 8, 5, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#5a6a3a'; ctx.beginPath(); ctx.ellipse(m.x, m.y - 1.5, 5, 3, 0, 0, TAU); ctx.fill();
+      if (m.arm <= 0 && Math.floor(g.time * 4 + m.x) % 2) { ctx.fillStyle = '#ff3030'; ctx.beginPath(); ctx.arc(m.x, m.y - 2, 1.8, 0, TAU); ctx.fill(); }
+    });
+  }
+  function drawBeams(g, ctx, w, evo) {
+    if (!w.L) return;
+    var p = g.player;
+    for (var b = 0; b < w.beams; b++) {
+      var a = w.ang + b * TAU / w.beams, L = w.L, cx = p.x, cy = p.y - 6;
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(a);
+      var gr = ctx.createLinearGradient(0, 0, L, 0);
+      gr.addColorStop(0, evo ? 'rgba(255,250,210,0.75)' : 'rgba(255,243,160,0.6)'); gr.addColorStop(1, 'rgba(255,243,160,0)');
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(6, -4); ctx.lineTo(L, -16); ctx.lineTo(L, 16); ctx.lineTo(6, 4); ctx.fill();
+      ctx.restore();
+    }
+    ctx.fillStyle = '#fff6c0'; ctx.beginPath(); ctx.arc(p.x, p.y - 6, 4, 0, TAU); ctx.fill();
+  }
+  function drawGnomes(g, ctx, w) {
+    if (!w.turrets) return;
+    w.turrets.forEach(function (t) {
+      var x = t.x, y = t.y, rc = t.recoil > 0 ? 1.5 : 0;
+      if (t.life < 2 && Math.floor(g.time * 10) % 2) return;
+      ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(x, y + 6, 8, 3, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#2a5aa0'; ctx.fillRect(x - 6, y - 6 + rc, 12, 11);
+      ctx.fillStyle = '#f1c9a0'; ctx.beginPath(); ctx.arc(x, y - 9 + rc, 4.5, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(x - 5, y - 8 + rc); ctx.lineTo(x + 5, y - 8 + rc); ctx.lineTo(x, y + 1 + rc); ctx.fill();
+      ctx.fillStyle = '#c8202e'; ctx.beginPath(); ctx.moveTo(x - 6, y - 11 + rc); ctx.lineTo(x + 6, y - 11 + rc); ctx.lineTo(x + 1, y - 24 + rc); ctx.fill();
+    });
+  }
+
   ZN.WEAPON_DRAW = {
+    landMine: drawMines, minefield: drawMines,
+    lighthouse: function (g, ctx, w) { drawBeams(g, ctx, w, false); },
+    beacon: function (g, ctx, w) { drawBeams(g, ctx, w, true); },
+    gnome: drawGnomes, gnomeArmy: drawGnomes,
     cheese: function (g, ctx, w) { drawAura(g, ctx, w, 'rgba(232,210,106,0.13)', 'rgba(232,210,106,0.55)'); },
     stilton: function (g, ctx, w) { drawAura(g, ctx, w, 'rgba(150,220,90,0.16)', 'rgba(182,227,106,0.7)'); },
     hubcaps: function (g, ctx, w) { drawOrbit(g, ctx, w, false); },

@@ -8,7 +8,7 @@ A Vampire Survivors-style Android game set across a zombie-overrun United Kingdo
 - **Waves**: each new county has one more wave than the last (capped at 20). Each wave is 40 seconds (the first mission's single wave is 60s), and you finish by killing the horde boss. Zombies get tougher with every wave and every county you take.
 - **Enemies**: Shamblers, Runners, Crawler swarms, Brutes, acid-spitting Spitters, exploding Bloaters, Red Kites, and treasure-carrying Elites.
 - **Regional horde bosses**, each with its own moves (charge, summon, acid volleys, underground/underwater dives, telegraphed ground slams):
-  The Beefeater Colossus (London), The Stonehenge Druid (South West), The Red Kite Matriarch (Wales), Nessie (Highlands), The Causeway Golem (Northern Ireland), The Fen Bog Beast (East), The Pit Wraith (North), The Abomination (elsewhere).
+  The Beefeater Colossus (London), The Stonehenge Druid (South West), The Red Kite Matriarch (Wales), Nessie (Highlands), The Causeway Golem (Northern Ireland), The Fen Bog Beast (East), The Pit Wraith (North), The Kraken (South West coast, erupting tentacles), Black Shuck (East Anglia, pouncing hellhound), The Lambton Worm (Durham and Tyne), Spring-heeled Jack (Surrey, Kent and Sussex, leaps on you), The Green Knight (Cheshire and the Peak District, immune shield phases), Black Annis (Leicestershire, homing curse orbs), The Abomination (elsewhere).
 - **Landmarks** in the battlefield: Big Ben, Stonehenge, a Cornish lighthouse, the Angel of the North, the Giant's Causeway, a Highland loch, castles, windmills, pubs, pitheads and the white cliffs.
 - **Survivors** (bought with coins), each with a starting weapon and perks: Tommy (pistol), Bert the Beefeater (halberd), Rhiannon the Welsh Shepherd (molotov), Big Rab the Glaswegian Bouncer (cheese aura), Jory the Cornish Fisherman (harpoon), Morag the Highland Piper (bagpipes).
 - **Counter-attacks**: after a mission, the horde may attack a liberated county on the frontier. Win a mission there within 3 missions or it falls back to the zombies.
@@ -22,7 +22,7 @@ A Vampire Survivors-style Android game set across a zombie-overrun United Kingdo
 - **Backup / Restore**: export your save as a code (copy it or share it to email or Drive) and restore it on another device.
 - **Feel**: screen shake, slow-motion on evolutions and boss kills, and vibration on hits, level-ups and big moments. Each can be toggled.
 - **In-mission levelling**: collect XP gems, then pick new weapons, passives or upgrades. You get 6 weapon slots and 6 passive slots.
-- **Weapons**: Service Pistol, Ice Sword, Fire Sword, Electric Sword, Crossbow, Molotov, Stinking Bishop (cheese aura), Hubcaps (orbit), Lightning Rod, Flamethrower, Cricket Bat, Bagpipes, Beefeater Halberd, Harpoon Gun.
+- **Weapons**: Service Pistol, Ice Sword, Fire Sword, Electric Sword, Crossbow, Molotov, Stinking Bishop (cheese aura), Hubcaps (orbit), Lightning Rod, Flamethrower, Cricket Bat, Bagpipes, Beefeater Halberd, Harpoon Gun, Bike Chain (lash), Land Mines, Carrier Pigeons (homing), Lighthouse Lamp (sweeping beam), Cricket Ball (ricochet), Garden Gnome (turret).
 - **Evolutions**:
   | Recipe | Result |
   |---|---|
@@ -40,6 +40,12 @@ A Vampire Survivors-style Android game set across a zombie-overrun United Kingdo
   | Bagpipes + Lucky Horseshoe | Highland Lament |
   | Beefeater Halberd + Brolly | Yeoman's Wrath |
   | Harpoon Gun + Fridge Magnet | Kraken's Reach |
+  | Bike Chain + Full English | Chain Reaper |
+  | Land Mines + Fuel Can | Minefield |
+  | Carrier Pigeons + Ammo Belt | Pigeon Squadron |
+  | Lighthouse Lamp + Union Flag Cape | Beacon of Albion |
+  | Cricket Ball + Pocket Watch | Fast Bowler |
+  | Garden Gnome + Brolly | Gnome Army |
 - **Coins** (kept even if you die) buy permanent stat upgrades: Might, Vitality, Armour, Recovery, Haste, Reach, Greed, Second Wind and more.
 - **Survivor level** (account XP from every mission) unlocks new weapons and passives, which can then turn up in level-up choices.
 

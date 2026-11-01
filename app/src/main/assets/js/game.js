@@ -406,6 +406,10 @@
   // opts: kb (knockback px), kx/ky (direction), slow, freeze, burn (dps), color, silent
   G.damage = function (e, base, opts) {
     if (e.dead) return;
+    if (e.shieldT > 0) {
+      if ((e.immuneTxt || 0) < this.time && this.texts.length < 70) { e.immuneTxt = this.time + 0.4; this.texts.push({ x: e.x, y: e.y - e.r - 8, t: 0, v: 'IMMUNE', color: '#7dff8a' }); }
+      return;
+    }
     opts = opts || {};
     var dmg = base * this.stat.might, crit = Math.random() < this.stat.crit;
     if (crit) dmg *= 2;
@@ -646,7 +650,7 @@
         }
       });
 
-      if (d < e.r + p.r && e.atkT <= 0 && e.freezeT <= 0 && !e.submerged) {
+      if (d < e.r + p.r && e.atkT <= 0 && e.freezeT <= 0 && !e.submerged && !e.leap) {
         e.atkT = e.def.boss ? 1 : 0.7; e.lungeT = 0.22;
         if (invinc) { e.atkT = 0.35; g.damage(e, 30, { kb: 180, kx: -ux, ky: -uy, color: '#ffd23a' }); continue; }
         g.hurtPlayer(e.dmg);
@@ -791,6 +795,14 @@
       }
       return 0;
     }
+    if (e.leap) {
+      var L = e.leap; L.t += dt;
+      var f = Math.min(1, L.t / L.T);
+      e.x = L.sx + (L.tx - L.sx) * f; e.y = L.sy + (L.ty - L.sy) * f; e.leapZ = Math.sin(f * Math.PI) * 110;
+      if (f >= 1) { e.leap = null; e.leapZ = 0; this.impact(e.x, e.y, 95, e.dmg * (this.tier < 3 ? 0.8 : 1.1), '#5ad1ff'); }
+      return 0;
+    }
+    if (e.shieldT > 0) { e.shieldT -= dt; return sp * 1.3; }
     if (e.slamT > 0) {
       e.slamT -= dt;
       if (e.slamT <= 0) this.impact(e.x, e.y, 150, e.dmg, '#a8a090');
@@ -798,16 +810,49 @@
     }
     if (e.windT > 0) {
       e.windT -= dt;
-      if (e.windT <= 0) { e.chargeT = 0.7; }
+      if (e.windT <= 0) { e.chargeT = e.chargeDur || 0.7; }
       return 0;
     }
-    if (e.chargeT > 0) { e.chargeT -= dt; return sp * 5; }
+    if (e.chargeT > 0) {
+      e.chargeT -= dt;
+      if (e.chargeT <= 0 && e.pounces > 0) { e.pounces--; e.windT = 0.3; e.chargeDur = 0.3; e.cdx = ux; e.cdy = uy; }
+      return sp * (e.chargeDur === 0.3 ? 7 : 5);
+    }
     e.specT -= dt;
     if (e.specT > 0) return sp;
     e.specT = rand(3.5, 5.5);
     var abs = bd.abilities || ['charge', 'summon'], ab = abs[(Math.random() * abs.length) | 0];
     if (ab === 'charge' && d > 420) ab = 'summon';
-    if (ab === 'charge') { e.windT = 0.7; e.cdx = ux; e.cdy = uy; }
+    if (ab === 'charge') { e.windT = 0.7; e.chargeDur = 0.7; e.cdx = ux; e.cdy = uy; }
+    else if (ab === 'pounce') { e.pounces = 2; e.windT = 0.45; e.chargeDur = 0.3; e.cdx = ux; e.cdy = uy; ZN.Audio.play('boss', 400); }
+    else if (ab === 'leap') {
+      e.leap = { sx: e.x, sy: e.y, tx: p.x, ty: p.y, t: 0, T: 0.95 };
+      this.effects.push({ kind: 'warn', x: p.x, y: p.y, r: 95, t: 0, T: 0.95 });
+    } else if (ab === 'shield') {
+      e.shieldT = 2.6;
+      this.effects.push({ kind: 'ring', x: e.x, y: e.y, r: 10, maxR: e.r * 1.8, t: 0, T: 0.4, color: '#7dff8a' });
+    } else if (ab === 'homing') {
+      var hn = 3 + Math.min(Math.floor(this.tier / 3), 5);
+      for (var h = 0; h < hn; h++) {
+        var ha = h / hn * TAU;
+        this.enemyShots.push({ x: e.x, y: e.y, vx: Math.cos(ha) * 115, vy: Math.sin(ha) * 115, r: 8, dmg: e.dmg * (this.tier < 3 ? 0.4 : 0.6), life: 5, color: bd.shot || '#9a6ad8', homing: true });
+      }
+      ZN.Audio.play('zap', 100);
+    } else if (ab === 'tentacles') {
+      var tn = 4 + Math.min(Math.floor(this.tier / 4), 4), g = this;
+      for (var q = 0; q < tn; q++) {
+        var qa = Math.random() * TAU, qd = q === 0 ? 0 : 50 + Math.random() * 110;
+        (function (x, y) {
+          g.effects.push({ kind: 'warn', x: x, y: y, r: 42, t: 0, T: 1.0 });
+          g.timers.push({ at: g.time + 1.0, fn: function () {
+            g.effects.push({ kind: 'tentacle', x: x, y: y, t: 0, T: 0.6, color: bd.skin });
+            var dx = g.player.x - x, dy = g.player.y - y;
+            if (dx * dx + dy * dy < 44 * 44) g.hurtPlayer(e.dmg * 0.9);
+            g.shake = Math.max(g.shake, 4);
+          } });
+        })(p.x + Math.cos(qa) * qd, p.y + Math.sin(qa) * qd);
+      }
+    }
     else if (ab === 'volley') {
       var n = 12 + Math.min(this.tier, 12), off = Math.random() * TAU;
       for (var k = 0; k < n; k++) {
@@ -847,9 +892,27 @@
         if (bl < 20) continue;
       }
       if (pr.life <= 0) continue;
+      if (pr.homing) {
+        pr.retT = (pr.retT || 0) - dt;
+        if (pr.retT <= 0 || !pr.tgt || pr.tgt.dead) { pr.retT = 0.15; pr.tgt = this.nearestEnemy(pr.x, pr.y, 330, pr.hit); }
+        if (pr.tgt) {
+          var cur = Math.atan2(pr.vy, pr.vx), want = Math.atan2(pr.tgt.y - pr.y, pr.tgt.x - pr.x);
+          cur += clamp(ZN.util.angDiff(want, cur), -7 * dt, 7 * dt);
+          pr.vx = Math.cos(cur) * pr.speed; pr.vy = Math.sin(cur) * pr.speed;
+        }
+      }
+      pr.bounced = false;
       this.queryEnemies(pr.x, pr.y, pr.r, function (e) {
-        if (pr.pierce <= 0 || pr.hit[e.id]) return;
+        if (pr.pierce <= 0 || pr.hit[e.id] || pr.bounced) return;
         pr.hit[e.id] = 1; pr.pierce--;
+        if (pr.bounce && pr.pierce > 0) {
+          var nx = g.nearestEnemy(e.x, e.y, 240, pr.hit);
+          if (nx) {
+            var ba = Math.atan2(nx.y - e.y, nx.x - e.x);
+            pr.vx = Math.cos(ba) * pr.speed; pr.vy = Math.sin(ba) * pr.speed; pr.x = e.x; pr.y = e.y; pr.bounced = true;
+            pr.life = Math.max(pr.life, 0.7);
+          } else pr.pierce = 0;
+        }
         g.damage(e, pr.dmg, { kb: pr.kb || 0, kx: pr.vx, ky: pr.vy, burn: pr.burn, slow: pr.slow, freeze: pr.freeze, silent: pr.silent });
         if (pr.chain && !e.dead && pr.chained < 3) { pr.chained = (pr.chained || 0) + 1; ZN.chainLightning(g, e, pr.chain, pr.dmg * 0.5, 140, '#9ff3ff'); }
       });
@@ -860,7 +923,13 @@
     var p = this.player, shots = [];
     for (var j = 0; j < this.enemyShots.length; j++) {
       var s = this.enemyShots[j];
-      s.life -= dt; s.x += s.vx * dt; s.y += s.vy * dt;
+      s.life -= dt;
+      if (s.homing) {
+        var sc = Math.atan2(s.vy, s.vx), sw = Math.atan2(p.y - s.y, p.x - s.x), sv = Math.sqrt(s.vx * s.vx + s.vy * s.vy);
+        sc += clamp(ZN.util.angDiff(sw, sc), -2.2 * dt, 2.2 * dt);
+        s.vx = Math.cos(sc) * sv; s.vy = Math.sin(sc) * sv;
+      }
+      s.x += s.vx * dt; s.y += s.vy * dt;
       var dx = s.x - p.x, dy = s.y - p.y;
       if (dx * dx + dy * dy < (s.r + p.r) * (s.r + p.r)) { this.hurtPlayer(s.dmg); continue; }
       if (s.life > 0) shots.push(s);
@@ -1247,7 +1316,18 @@
     }
     var ang = Math.atan2(pr.vy, pr.vx);
     ctx.save(); ctx.translate(pr.x, pr.y); ctx.rotate(ang);
-    if (pr.kind === 'bat') {
+    if (pr.kind === 'pigeon') {
+      var flap = Math.sin(this.time * 30 + pr.x) * 4;
+      ctx.fillStyle = '#c8ccd8'; ctx.beginPath(); ctx.ellipse(0, 0, 7, 4, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#a0a8b8'; ctx.beginPath(); ctx.moveTo(-2, 0); ctx.lineTo(-6, -6 - flap); ctx.lineTo(3, -1); ctx.moveTo(-2, 0); ctx.lineTo(-6, 6 + flap); ctx.lineTo(3, 1); ctx.fill();
+      ctx.fillStyle = '#5a7a6a'; ctx.beginPath(); ctx.arc(6, 0, 3, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#ffb030'; ctx.fillRect(8, -0.8, 3, 1.6);
+    } else if (pr.kind === 'ball') {
+      ctx.rotate(this.time * 20);
+      ctx.fillStyle = '#b81c28'; ctx.beginPath(); ctx.arc(0, 0, pr.r, 0, TAU); ctx.fill();
+      ctx.strokeStyle = '#f0e0c0'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, pr.r * 0.65, -0.6, 0.6); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, pr.r * 0.65, Math.PI - 0.6, Math.PI + 0.6); ctx.stroke();
+    } else if (pr.kind === 'bat') {
       ctx.rotate(this.time * 18);
       ctx.fillStyle = '#d9b77a'; ctx.fillRect(-14, -4, 22, 8); ctx.fillStyle = '#7a5a3a'; ctx.fillRect(8, -2, 9, 4);
     } else if (pr.kind === 'harpoon') {
@@ -1296,6 +1376,27 @@
       case 'ring':
         ctx.globalAlpha = a; ctx.strokeStyle = f.color; ctx.lineWidth = 4;
         ctx.beginPath(); ctx.arc(f.x, f.y, f.r + (f.maxR - f.r) * (f.t / f.T), 0, TAU); ctx.stroke(); break;
+      case 'lash': {
+        var lw = f.w * (0.6 + a * 0.4), n = Math.max(6, Math.abs(f.x2 - f.x1) / 9 | 0);
+        ctx.globalAlpha = Math.min(1, a * 1.6);
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = lw; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(f.x1, f.y); ctx.lineTo(f.x2, f.y); ctx.stroke();
+        ctx.strokeStyle = f.color; ctx.lineWidth = 2.5;
+        for (i = 0; i <= n; i++) {
+          var lx = f.x1 + (f.x2 - f.x1) * i / n, ly = f.y + Math.sin(i * 0.9 + f.t * 30) * lw * 0.25;
+          ctx.beginPath(); ctx.ellipse(lx, ly, 4, 2.5, 0, 0, TAU); ctx.stroke();
+        }
+        break;
+      }
+      case 'tentacle': {
+        var th = Math.sin(Math.min(1, f.t / f.T) * Math.PI) * 60;
+        ctx.globalAlpha = 1; ctx.fillStyle = f.color || '#a04a8a';
+        ctx.beginPath(); ctx.moveTo(f.x - 10, f.y); ctx.quadraticCurveTo(f.x - 14, f.y - th * 0.6, f.x + Math.sin(f.t * 12) * 8, f.y - th);
+        ctx.quadraticCurveTo(f.x + 12, f.y - th * 0.5, f.x + 10, f.y); ctx.fill();
+        ctx.fillStyle = '#f0c0e0';
+        for (i = 1; i < 4; i++) { ctx.beginPath(); ctx.arc(f.x + 2, f.y - th * i / 4.5, 2, 0, TAU); ctx.fill(); }
+        break;
+      }
       case 'corpse':
         ZN.Sprites.corpse(ctx, f.e, f.t, f.T, f.side); break;
       case 'scratch':

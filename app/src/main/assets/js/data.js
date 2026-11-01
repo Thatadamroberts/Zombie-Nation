@@ -257,6 +257,53 @@ ZN.WEAPONS = {
         amount: 1 + (l >= 2 ? 1 : 0) + (l >= 6 ? 1 : 0), pierce: 4 + (l >= 4 ? 3 : 0) };
     }
   },
+  bikeChain: {
+    name: 'Bike Chain', icon: '⛓️', color: '#b8c0c8', kind: 'Melee · Lash', max: 6,
+    levels: ['Lashes a long horizontal strike to your side.', '+6 damage', '+20% length', 'Lashes both sides', '-15% cooldown', '+10 damage, wider lash'],
+    stats: function (l) {
+      return { dmg: 16 + (l >= 2 ? 6 : 0) + (l >= 6 ? 10 : 0), cd: l >= 5 ? 1.0 : 1.2, len: 125 * (l >= 3 ? 1.2 : 1),
+        width: l >= 6 ? 20 : 14, both: l >= 4 };
+    }
+  },
+  landMine: {
+    name: 'Land Mines', icon: '💣', color: '#8a9a5a', kind: 'Trap · Explosive', max: 6,
+    levels: ['Drops mines behind you that blow up under zombies.', '+10 damage', '+2 mines at a time, faster drops', '+25% blast radius', '+15 damage', 'Mines drop twice as fast'],
+    stats: function (l) {
+      return { dmg: 40 + (l >= 2 ? 10 : 0) + (l >= 5 ? 15 : 0), cd: (l >= 3 ? 1.2 : 1.5) * (l >= 6 ? 0.5 : 1), radius: 58 * (l >= 4 ? 1.25 : 1),
+        maxMines: 6 + (l >= 3 ? 2 : 0) };
+    }
+  },
+  pigeon: {
+    name: 'Carrier Pigeons', icon: '🕊️', color: '#d0d4e0', kind: 'Ranged · Homing', max: 6,
+    levels: ['Releases pigeons that hunt down zombies.', '+1 pigeon', '+6 damage', '+1 pigeon', 'Pigeons pierce one more zombie', '+1 pigeon, +8 damage'],
+    stats: function (l) {
+      return { dmg: 14 + (l >= 3 ? 6 : 0) + (l >= 6 ? 8 : 0), cd: 1.5, amount: 2 + (l >= 2 ? 1 : 0) + (l >= 4 ? 1 : 0) + (l >= 6 ? 1 : 0),
+        pierce: l >= 5 ? 2 : 1 };
+    }
+  },
+  lighthouse: {
+    name: 'Lighthouse Lamp', icon: '🔦', color: '#fff3a0', kind: 'Beam · Sweep', max: 6,
+    levels: ['A beam of light sweeps around you, searing zombies.', '+2 damage', '+25% length', 'Sweeps faster', '+3 damage', 'A second beam on the opposite side'],
+    stats: function (l) {
+      return { dmg: 6 + (l >= 2 ? 2 : 0) + (l >= 5 ? 3 : 0), len: 170 * (l >= 3 ? 1.25 : 1), spin: l >= 4 ? 2.6 : 1.9, beams: l >= 6 ? 2 : 1, burn: 0 };
+    }
+  },
+  cricketBall: {
+    name: 'Cricket Ball', icon: '🔴', color: '#c8202e', kind: 'Ranged · Ricochet', max: 6,
+    levels: ['A hard ball that ricochets from zombie to zombie.', '+2 bounces', '+8 damage', '+1 ball', '+3 bounces', '+1 ball, +10 damage'],
+    stats: function (l) {
+      return { dmg: 20 + (l >= 3 ? 8 : 0) + (l >= 6 ? 10 : 0), cd: 1.3, amount: 1 + (l >= 4 ? 1 : 0) + (l >= 6 ? 1 : 0),
+        bounces: 3 + (l >= 2 ? 2 : 0) + (l >= 5 ? 3 : 0) };
+    }
+  },
+  gnome: {
+    name: 'Garden Gnome', icon: '🧙', color: '#3a8a3a', kind: 'Turret', max: 6,
+    levels: ['Plants a gnome turret that shoots nearby zombies.', 'Shoots faster', '+6 damage', 'Plant 2 gnomes', 'Gnomes last longer', 'Plant 3 gnomes, +6 damage'],
+    stats: function (l) {
+      return { dmg: 11 + (l >= 3 ? 6 : 0) + (l >= 6 ? 6 : 0), fire: l >= 2 ? 0.4 : 0.6, count: 1 + (l >= 4 ? 1 : 0) + (l >= 6 ? 1 : 0),
+        life: 9 + (l >= 5 ? 5 : 0), cd: 3.5 };
+    }
+  },
   // ---- Evolutions ----
   minigun: {
     name: 'Minigun', icon: '🔫', color: '#ffd166', kind: 'Evolved · Ranged', max: 1, evolved: true,
@@ -323,6 +370,36 @@ ZN.WEAPONS = {
     levels: ['Royal sweeps of the halberd in every direction.'],
     stats: function () { return { dmg: 60, cd: 1.2, radius: 150 }; }
   },
+  chainReaper: {
+    name: 'Chain Reaper', icon: '⛓️', color: '#ff7a7a', kind: 'Evolved · Lash', max: 1, evolved: true,
+    levels: ['Huge lashes on both sides that heal you a little for every zombie hit.'],
+    stats: function () { return { dmg: 40, cd: 0.8, len: 190, width: 26, both: true, heal: 0.4 }; }
+  },
+  minefield: {
+    name: 'Minefield', icon: '💥', color: '#c8a03a', kind: 'Evolved · Explosive', max: 1, evolved: true,
+    levels: ['Cluster mines carpet the ground and burn whatever survives the blast.'],
+    stats: function () { return { dmg: 80, cd: 0.45, radius: 85, maxMines: 14, burn: 8 }; }
+  },
+  pigeonSquadron: {
+    name: 'Pigeon Squadron', icon: '🕊️', color: '#ffffff', kind: 'Evolved · Homing', max: 1, evolved: true,
+    levels: ['A whole flock of armoured pigeons that never stops hunting.'],
+    stats: function () { return { dmg: 26, cd: 0.9, amount: 7, pierce: 3 }; }
+  },
+  beacon: {
+    name: 'Beacon of Albion', icon: '🗼', color: '#fffbd0', kind: 'Evolved · Beam', max: 1, evolved: true,
+    levels: ['Four blazing beams that set the whole horde alight.'],
+    stats: function () { return { dmg: 14, len: 260, spin: 2.2, beams: 4, burn: 8 }; }
+  },
+  fastBowler: {
+    name: 'Fast Bowler', icon: '🏏', color: '#ff4040', kind: 'Evolved · Ricochet', max: 1, evolved: true,
+    levels: ['Blistering deliveries that ricochet through the entire horde.'],
+    stats: function () { return { dmg: 45, cd: 0.7, amount: 3, bounces: 14 }; }
+  },
+  gnomeArmy: {
+    name: 'Gnome Army', icon: '🧙', color: '#5ad15a', kind: 'Evolved · Turret', max: 1, evolved: true,
+    levels: ['A squad of rapid-firing gnomes follows you into battle.'],
+    stats: function () { return { dmg: 18, fire: 0.18, count: 4, life: 999, cd: 1 }; }
+  },
   krakensReach: {
     name: "Kraken's Reach", icon: '🐙', color: '#4fd1c5', kind: 'Evolved · Pierce', max: 1, evolved: true,
     levels: ['A ring of harpoons erupts outward, slowing all they pass through.'],
@@ -345,7 +422,13 @@ ZN.EVOLUTIONS = [
   { from: ['cricketBat'], passive: 'wellies', into: 'sixHitter' },
   { from: ['bagpipes'], passive: 'horseshoe', into: 'highlandLament' },
   { from: ['halberd'], passive: 'brolly', into: 'yeomansWrath' },
-  { from: ['harpoon'], passive: 'magnet', into: 'krakensReach' }
+  { from: ['harpoon'], passive: 'magnet', into: 'krakensReach' },
+  { from: ['bikeChain'], passive: 'fullEnglish', into: 'chainReaper' },
+  { from: ['landMine'], passive: 'fuelCan', into: 'minefield' },
+  { from: ['pigeon'], passive: 'ammoBelt', into: 'pigeonSquadron' },
+  { from: ['lighthouse'], passive: 'unionCape', into: 'beacon' },
+  { from: ['cricketBall'], passive: 'pocketWatch', into: 'fastBowler' },
+  { from: ['gnome'], passive: 'brolly', into: 'gnomeArmy' }
 ];
 
 // ---------------------------------------------------------------------------
@@ -370,14 +453,15 @@ ZN.MAX_PASSIVE_SLOTS = 6;
 // Account level at which each item becomes available in the level-up pool
 ZN.UNLOCKS = {
   1: ['pistol', 'iceSword', 'cheese', 'molotov', 'tea', 'wellies', 'fullEnglish', 'magnet', 'ammoBelt'],
-  2: ['fireSword', 'cricketBat'],
+  2: ['fireSword', 'cricketBat', 'bikeChain'],
   3: ['crossbow', 'pocketWatch'],
-  4: ['hubcaps', 'brolly'],
-  5: ['elecSword'],
+  4: ['hubcaps', 'brolly', 'cricketBall'],
+  5: ['elecSword', 'landMine'],
   6: ['lightning', 'fuelCan', 'bagpipes'],
-  7: ['flamethrower', 'unionCape'],
+  7: ['flamethrower', 'unionCape', 'pigeon'],
   8: ['horseshoe', 'halberd'],
-  9: ['harpoon']
+  9: ['harpoon', 'lighthouse'],
+  10: ['gnome']
 };
 
 // Account XP needed to go from level L to L+1
@@ -458,12 +542,21 @@ ZN.BOSSES = {
   nessie:      { name: 'Nessie', hpMul: 1.15, speed: 50, r: 40, color: '#2f5a4a', skin: '#4f8a6a', shape: 'nessie', abilities: ['dive', 'volley', 'dive'], minion: 'crawler', shot: '#6fd0c0' },
   golem:       { name: "The Causeway Golem", hpMul: 1.4, speed: 30, r: 46, color: '#3a3a40', skin: '#5a5a66', shape: 'golem', abilities: ['slam', 'slam', 'summon'], minion: 'shambler' },
   bogbeast:    { name: 'The Fen Bog Beast', hpMul: 1.0, speed: 36, r: 40, color: '#4a5a2a', skin: '#7a8a3a', shape: 'zombie', abilities: ['volley', 'summon', 'charge'], minion: 'bloater', shot: '#9be03a' },
+  kraken:      { name: 'The Kraken', hpMul: 1.2, speed: 40, r: 42, color: '#6a2a5a', skin: '#a04a8a', shape: 'kraken', abilities: ['tentacles', 'volley', 'tentacles'], minion: 'crawler', shot: '#c87ac0' },
+  shuck:       { name: 'Black Shuck', hpMul: 0.9, speed: 70, r: 32, color: '#111114', skin: '#2a2a30', shape: 'shuck', abilities: ['pounce', 'pounce', 'summon'], minion: 'runner' },
+  worm:        { name: 'The Lambton Worm', hpMul: 1.25, speed: 48, r: 36, color: '#5a6a3a', skin: '#8a9a5a', shape: 'worm', abilities: ['dive', 'volley', 'tentacles'], minion: 'crawler', shot: '#b0d060' },
+  jack:        { name: 'Spring-heeled Jack', hpMul: 0.85, speed: 60, r: 30, color: '#1a1a24', skin: '#d0d0d8', shape: 'jack', abilities: ['leap', 'leap', 'homing'], minion: 'runner', shot: '#5ad1ff' },
+  knight:      { name: 'The Green Knight', hpMul: 1.3, speed: 44, r: 38, color: '#2a6a3a', skin: '#5aa05a', shape: 'knight', abilities: ['shield', 'charge', 'leap'], minion: 'shambler' },
+  annis:       { name: 'Black Annis', hpMul: 1.0, speed: 42, r: 34, color: '#3a3a5a', skin: '#6a8ac8', shape: 'annis', abilities: ['homing', 'summon', 'homing'], minion: 'spitter', shot: '#9a6ad8' },
   pitwraith:   { name: 'The Pit Wraith', hpMul: 1.0, speed: 44, r: 36, color: '#2a2a2a', skin: '#6a6a6a', shape: 'zombie', abilities: ['dive', 'charge', 'summon'], minion: 'runner' }
 };
 ZN.REGION_BOSS = { sw: 'druid', se: 'abomination', east: 'bogbeast', mid: 'abomination', north: 'pitwraith',
   wales: 'kite', scot: 'abomination', high: 'nessie', city: 'abomination', ni: 'golem' };
 ZN.COUNTY_BOSS = { london: 'colossus', wiltshire: 'druid', powys: 'kite', highland: 'nessie', lochaber: 'nessie',
-  caithness: 'nessie', antrim: 'golem', perth: 'nessie', argyll: 'nessie' };
+  caithness: 'nessie', antrim: 'golem', perth: 'nessie', argyll: 'nessie',
+  cornwall: 'kraken', devon: 'kraken', dorset: 'kraken', norfolk: 'shuck', suffolk: 'shuck', essex: 'shuck',
+  durham: 'worm', tyne: 'worm', northumb: 'worm', surrey: 'jack', kent: 'jack', esussex: 'jack', wsussex: 'jack',
+  cheshire: 'knight', staffs: 'knight', derbys: 'knight', leics: 'annis', notts: 'annis', northants: 'annis' };
 
 // Landmarks drawn near the start of each mission
 ZN.REGION_LANDMARK = { sw: 'church', se: 'church', east: 'windmill', mid: 'pub', north: 'pithead', wales: 'castle',
