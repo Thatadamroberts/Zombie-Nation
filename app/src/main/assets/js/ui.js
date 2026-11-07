@@ -442,9 +442,13 @@
 
   function updateBuffs(g) {
     var box = $('hud-buffs'), active = Object.keys(g.buffs).filter(function (k) { return g.buffs[k] > 0; });
-    var sig = active.join();
+    var sig = active.join() + '|' + g.waveModList.join();
     if (sig !== updateBuffs.sig) {
       updateBuffs.sig = sig; box.innerHTML = '';
+      g.waveModList.forEach(function (k) {
+        var m = ZN.WAVE_MODS[k];
+        box.appendChild(el('div', 'buff-chip threat', m.icon + ' ' + m.name));
+      });
       active.forEach(function (k) {
         var b = ZN.BUFFS[k], c = el('div', 'buff-chip', b.icon + ' ' + b.name + '<div class="bt" id="bt-' + k + '"></div>');
         c.style.borderColor = b.color; c.style.color = b.color;
@@ -482,7 +486,7 @@
     container.innerHTML = '';
     g.weapons.forEach(function (w) {
       var d = ZN.WEAPONS[w.id], max = w.level >= d.max;
-      var e = el('div', 'hi' + (max ? ' max' : ''), d.icon + '<b>' + (d.evolved ? '★' : max ? 'M' : w.level) + '</b>');
+      var e = el('div', 'hi' + (max ? ' max' : '') + (d.evolved ? ' evo' : ''), d.icon + '<b>' + (max ? (d.evolved ? '★' : 'M') : (d.evolved ? '★' + w.level : w.level)) + '</b>');
       e.style.borderColor = d.color;
       container.appendChild(e);
     });

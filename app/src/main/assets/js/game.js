@@ -42,6 +42,10 @@
     this.damageTaken = 0; this.evolvedIds = [];
     this.buffs = {}; this.particles = []; this.buffCd = 8; this.dustT = 0;
     this.trait = opts.trait || ZN.traitFor(opts.county); this.traitT = 12; this.hazards = []; this.miniIdx = 0; this.midMini = false;
+    // Escalating wave threats in a fixed order per county
+    var modKeys = Object.keys(ZN.WAVE_MODS), ms = this.seed;
+    for (var mi = modKeys.length - 1; mi > 0; mi--) { ms = (ms * 1103515245 + 12345) >>> 0; var mj = ms % (mi + 1), mt = modKeys[mi]; modKeys[mi] = modKeys[mj]; modKeys[mj] = mt; }
+    this.modOrder = modKeys; this.waveMods = {}; this.waveModList = [];
     this.petDef = opts.pet ? ZN.PETS[opts.pet] : null;
     this.petMul = opts.pet ? ZN.petMult((ZN.Save.data.petLevels || {})[opts.pet] || 0) : 1;
     // Level-up tools bought in the shop
@@ -323,6 +327,12 @@
       dmg: def.dmg * this.dmgMult(), chargeT: 0, windT: 0, specT: 4, cdx: 0, cdy: 0, dead: false, xpMul: 1,
       spawnT: def.boss || def.flyer ? 0 : 0.45, lungeT: 0 };
     if (this.mods.fast) e.spd *= 1.5;
+    if (!def.boss) {
+      var wmods = this.waveMods;
+      if (wmods.armoured) { e.hp *= 1.35; e.maxHp *= 1.35; }
+      if (wmods.sprinters) e.spd *= 1.18;
+      if (wmods.bloodthirsty) e.dmg *= 1.25;
+    }
     if (this.mods.giants && !def.boss) { e.r *= 1.35; e.hp *= 1.5; e.maxHp *= 1.5; e.xpMul = 2; }
     this.enemies.push(e);
     return e;
@@ -333,6 +343,7 @@
     var rate = (2.2 + 0.5 * w + 0.05 * this.tier) * (1 + 0.7 * prog);
     if (this.bossPhase) rate *= 0.35;
     if (this.mods.horde) rate *= 1.6;
+    if (this.waveMods.surge) rate *= 1.3;
     var cap = Math.min(110 + 18 * w + 4 * this.tier, 320);
     this.spawnAcc += rate * dt;
     while (this.spawnAcc >= 1) {
@@ -358,7 +369,12 @@
     if (this.waveIdx < this.waves - 1) {
       this.waveIdx++; this.waveTime = 0; this.waveDur = ZN.WAVE_DURATION;
       ZN.Audio.play('wave');
+      var newMod = this.updateWaveMods();
       this.spawnMini('WAVE ' + (this.waveIdx + 1) + ' / ' + this.waves);
+      if (newMod) {
+        var wm = ZN.WAVE_MODS[newMod], g2 = this;
+        this.timers.push({ at: this.time + 2.8, fn: function () { g2.banner('NEW THREAT', wm.icon + ' ' + wm.name + ': ' + wm.desc); ZN.Audio.play('boss', 300); } });
+      }
     } else {
       this.bossPhase = true;
       var bossScale = ((this.waves === 1 ? 0.8 : 1) + 0.15 * this.waves) * (this.mods.bigBoss ? 2 : 1) * (1 + Math.min(this.tier, 25) * 0.045);
@@ -427,6 +443,18 @@
       if (hz.life > 0) keep.push(hz);
     }
     this.hazards = keep;
+  };
+
+  // How many wave threats are active for the current wave; returns the newly added one
+  G.updateWaveMods = function () {
+    var start = this.tier >= 8 ? 1 : 2, w = this.waveIdx;
+    var want = w < start ? 0 : Math.min(ZN.WAVE_MODS_MAX, Math.floor((w - start) / 2) + 1), added = null;
+    while (this.waveModList.length < want) {
+      added = this.modOrder[this.waveModList.length];
+      this.waveModList.push(added); this.waveMods[added] = true;
+    }
+    if (added && this.opts.onBuff) this.opts.onBuff(this);
+    return added;
   };
 
   // Lieutenant mini boss, picked per county and wave
@@ -501,8 +529,9 @@
       return;
     }
     opts = opts || {};
-    var dmg = base * this.stat.might, crit = Math.random() < this.stat.crit;
-    if (crit) dmg *= 2;
+    var dmg = base * this.stat.might, crit = Math.random() < this.stat.crit + (opts.crit || 0);
+    if (crit) dmg *= opts.critMul || 2;
+    if (this.waveMods.shielded && (e.type === 'brute' || e.def.mini || e.def.elite)) dmg *= 0.75;
     e.hp -= dmg; e.flash = 0.08;
     if (opts.kb) {
       var kx = opts.kx, ky = opts.ky;
@@ -534,6 +563,17 @@
     }
     if (ZN.Sprites.has(e.type) && !def.boss) this.effects.push({ kind: 'corpse', e: e, x: e.x, y: e.y, t: 0, T: 0.7, side: Math.cos(e.dir || 0) < 0 ? -1 : 1 });
     this.emit(e.x, e.y - e.r * 0.3, def.boss ? 30 : 6, def.ranged || def.explodes ? '#9be03a' : '#7a1414', 120, 0.5, def.boss ? 5 : 3);
+    if (!this.victory && !def.boss && !def.mini) {
+      if (this.waveMods.splitters && (e.type === 'shambler' || e.type === 'brute')) {
+        for (var si = 0; si < (e.type === 'brute' ? 3 : 2); si++) { var sc = this.spawnEnemy('crawler', e.x + rand(-10, 10), e.y + rand(-10, 10)); sc.spawnT = 0; sc.xpMul = 0.25; }
+      }
+      if (this.waveMods.volatile && !def.explodes && Math.random() < 0.15) {
+        this.effects.push({ kind: 'boom', x: e.x, y: e.y, r: 48, t: 0, T: 0.35, color: '#ff7a2a' });
+        var vx = this.player.x - e.x, vy = this.player.y - e.y;
+        if (vx * vx + vy * vy < 48 * 48) this.hurtPlayer(e.dmg);
+        ZN.Audio.play('boom', 150);
+      }
+    }
     if (def.explodes) {
       var br = this.trait === 'bloaters' ? 85 : 64;
       this.effects.push({ kind: 'boom', x: e.x, y: e.y, r: br, t: 0, T: 0.4, color: '#c8d84a' });
@@ -704,6 +744,7 @@
       if (e.flash > 0) e.flash -= dt;
       if (e.atkT > 0) e.atkT -= dt;
       if (e.slowT > 0) e.slowT -= dt;
+      if (this.waveMods.regenerating && !e.def.boss && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.025 * dt);
       if (e.burnT > 0) {
         e.burnT -= dt; e.burnTick -= dt;
         if (e.burnTick <= 0) { e.burnTick = 0.5; e.hp -= e.burnDps * 0.5; e.flash = 0.05; if (e.hp <= 0) { this.kill(e); continue; } }
@@ -1044,7 +1085,7 @@
             pr.life = Math.max(pr.life, 0.7);
           } else pr.pierce = 0;
         }
-        g.damage(e, pr.dmg, { kb: pr.kb || 0, kx: pr.vx, ky: pr.vy, burn: pr.burn, slow: pr.slow, freeze: pr.freeze, silent: pr.silent });
+        g.damage(e, pr.dmg, { kb: pr.kb || 0, kx: pr.vx, ky: pr.vy, burn: pr.burn, slow: pr.slow, freeze: pr.freeze, silent: pr.silent, crit: pr.crit, critMul: pr.critMul });
         if (pr.chain && !e.dead && pr.chained < 3) { pr.chained = (pr.chained || 0) + 1; ZN.chainLightning(g, e, pr.chain, pr.dmg * 0.5, 140, '#9ff3ff'); }
       });
       if (pr.pierce > 0) out.push(pr);
@@ -1525,7 +1566,15 @@
     }
     var ang = Math.atan2(pr.vy, pr.vx);
     ctx.save(); ctx.translate(pr.x, pr.y); ctx.rotate(ang);
-    if (pr.kind === 'pigeon') {
+    if (pr.kind === 'pellet') {
+      ctx.fillStyle = pr.color; ctx.beginPath(); ctx.arc(0, 0, pr.r, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(255,220,120,0.35)'; ctx.fillRect(-pr.r * 3, -pr.r * 0.5, pr.r * 3, pr.r);
+    } else if (pr.kind === 'dart') {
+      ctx.fillStyle = '#d0d4da'; ctx.fillRect(2, -1, 7, 2);
+      ctx.fillStyle = '#222'; ctx.fillRect(-4, -1.5, 7, 3);
+      ctx.fillStyle = pr.critMul >= 3 ? '#ffd23a' : '#e05050';
+      ctx.beginPath(); ctx.moveTo(-4, 0); ctx.lineTo(-10, -4); ctx.lineTo(-8, 0); ctx.lineTo(-10, 4); ctx.fill();
+    } else if (pr.kind === 'pigeon') {
       var flap = Math.sin(this.time * 30 + pr.x) * 4;
       ctx.fillStyle = '#c8ccd8'; ctx.beginPath(); ctx.ellipse(0, 0, 7, 4, 0, 0, TAU); ctx.fill();
       ctx.fillStyle = '#a0a8b8'; ctx.beginPath(); ctx.moveTo(-2, 0); ctx.lineTo(-6, -6 - flap); ctx.lineTo(3, -1); ctx.moveTo(-2, 0); ctx.lineTo(-6, 6 + flap); ctx.lineTo(3, 1); ctx.fill();

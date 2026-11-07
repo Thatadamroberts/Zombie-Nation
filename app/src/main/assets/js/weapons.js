@@ -16,7 +16,7 @@
     g.projectiles.push({ x: g.player.x, y: g.player.y, vx: Math.cos(ang) * o.speed, vy: Math.sin(ang) * o.speed,
       r: o.r, dmg: o.dmg, pierce: o.pierce, life: o.life, hit: {}, kind: o.kind, color: o.color, kb: o.kb || 0,
       burn: o.burn, slow: o.slow, freeze: o.freeze, silent: o.silent, grow: o.grow, drag: o.drag, maxLife: o.life,
-      speed: o.speed, boomerang: o.boomerang, chain: o.chain, homing: o.homing, bounce: o.bounce });
+      speed: o.speed, boomerang: o.boomerang, chain: o.chain, homing: o.homing, bounce: o.bounce, crit: o.crit, critMul: o.critMul });
   }
 
   // Melee arc. Returns enemies hit.
@@ -257,7 +257,42 @@
     w.turrets = keep;
   }
 
+  function shotgun(g, w, s, dt, evo) {
+    if (w.t > 0) { w.t -= dt; return; }
+    var p = g.player, tgt = g.nearestEnemy(p.x, p.y, 260);
+    if (!tgt) return;
+    w.t = s.cd * g.stat.cooldown;
+    var base = Math.atan2(tgt.y - p.y, tgt.x - p.x), n = s.pellets + g.stat.amount * 2;
+    for (var v = 0; v < s.volleys; v++) {
+      (function (delay) {
+        g.timers.push({ at: g.time + delay, fn: function () {
+          for (var i = 0; i < n; i++) {
+            shoot(g, base + (i / (n - 1) - 0.5) * 0.9 + rand(-0.05, 0.05), { speed: rand(430, 520), r: evo ? 4.5 : 3.5, dmg: s.dmg, pierce: s.pierce,
+              life: 0.42, kind: 'pellet', color: evo ? '#ffb030' : '#f0e0a0', kb: evo ? 70 : 45, burn: s.burn, drag: 0.4, silent: true });
+          }
+          g.shake = Math.max(g.shake, evo ? 3 : 1.5);
+          ZN.Audio.play('boom', 120);
+        } });
+      })(v * 0.18);
+    }
+  }
+
+  function darts(g, w, s, dt) {
+    if (w.t > 0) { w.t -= dt; return; }
+    var p = g.player, tgt = g.nearestEnemy(p.x, p.y, 360);
+    if (!tgt) return;
+    w.t = s.cd * g.stat.cooldown;
+    var n = s.amount + g.stat.amount, base = Math.atan2(tgt.y - p.y, tgt.x - p.x);
+    for (var i = 0; i < n; i++) shoot(g, base + (i - (n - 1) / 2) * 0.14, { speed: 560, r: 4, dmg: s.dmg, pierce: 1, life: 1.2, kind: 'dart',
+      color: '#e05050', kb: 10, crit: s.crit, critMul: s.critMul, homing: s.homing, silent: true });
+    ZN.Audio.play('shoot', 120);
+  }
+
   ZN.WEAPON_LOGIC = {
+    shotgun: function (g, w, s, dt) { shotgun(g, w, s, dt, false); },
+    boomstick: function (g, w, s, dt) { shotgun(g, w, s, dt, true); },
+    darts: function (g, w, s, dt) { darts(g, w, s, dt); },
+    bullseye: function (g, w, s, dt) { darts(g, w, s, dt); },
     bikeChain: function (g, w, s, dt) { lash(g, w, s, dt, '#c8d0d8'); },
     chainReaper: function (g, w, s, dt) { lash(g, w, s, dt, '#ff7a7a'); },
     landMine: function (g, w, s, dt) { mines(g, w, s, dt, false); },

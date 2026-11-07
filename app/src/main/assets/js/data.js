@@ -304,6 +304,22 @@ ZN.WEAPONS = {
         life: 9 + (l >= 5 ? 5 : 0), cd: 3.5 };
     }
   },
+  shotgun: {
+    name: 'Double-Barrel Shotgun', icon: '💥', color: '#c8a070', kind: 'Ranged · Spread', max: 6,
+    levels: ['Blasts a wide spread of pellets at close range.', '+2 pellets', '+4 damage', 'Fires both barrels (two blasts)', '+2 pellets, +1 pierce', '+6 damage, -20% cooldown'],
+    stats: function (l) {
+      return { dmg: 9 + (l >= 3 ? 4 : 0) + (l >= 6 ? 6 : 0), cd: l >= 6 ? 1.1 : 1.4, pellets: 6 + (l >= 2 ? 2 : 0) + (l >= 5 ? 2 : 0),
+        pierce: l >= 5 ? 2 : 1, volleys: l >= 4 ? 2 : 1 };
+    }
+  },
+  darts: {
+    name: 'Pub Darts', icon: '🎯', color: '#e05050', kind: 'Ranged · Crit', max: 6,
+    levels: ['Rapid darts at nearby zombies with a high critical chance.', '+1 dart', '+15% crit chance', '+5 damage', '+1 dart, faster throws', 'Crits deal triple damage'],
+    stats: function (l) {
+      return { dmg: 9 + (l >= 4 ? 5 : 0), cd: l >= 5 ? 0.45 : 0.6, amount: 1 + (l >= 2 ? 1 : 0) + (l >= 5 ? 1 : 0),
+        crit: 0.2 + (l >= 3 ? 0.15 : 0), critMul: l >= 6 ? 3 : 2 };
+    }
+  },
   // ---- Evolutions ----
   minigun: {
     name: 'Minigun', icon: '🔫', color: '#ffd166', kind: 'Evolved · Ranged', max: 1, evolved: true,
@@ -400,6 +416,16 @@ ZN.WEAPONS = {
     levels: ['A squad of rapid-firing gnomes follows you into battle.'],
     stats: function () { return { dmg: 18, fire: 0.18, count: 4, life: 999, cd: 1 }; }
   },
+  boomstick: {
+    name: 'Incendiary Boomstick', icon: '🔥', color: '#ff8a3a', kind: 'Evolved · Spread', max: 1, evolved: true,
+    levels: ['Dragon-fire shells: huge burning blasts that hurl zombies back.'],
+    stats: function () { return { dmg: 20, cd: 0.9, pellets: 14, pierce: 3, volleys: 2, burn: 8 }; }
+  },
+  bullseye: {
+    name: 'One Hundred and Eighty!', icon: '🎯', color: '#ffd23a', kind: 'Evolved · Crit', max: 1, evolved: true,
+    levels: ['Three darts at a time that seek their target and always find the treble 20.'],
+    stats: function () { return { dmg: 18, cd: 0.3, amount: 3, crit: 0.6, critMul: 3, homing: true }; }
+  },
   krakensReach: {
     name: "Kraken's Reach", icon: '🐙', color: '#4fd1c5', kind: 'Evolved · Pierce', max: 1, evolved: true,
     levels: ['A ring of harpoons erupts outward, slowing all they pass through.'],
@@ -428,8 +454,30 @@ ZN.EVOLUTIONS = [
   { from: ['pigeon'], passive: 'ammoBelt', into: 'pigeonSquadron' },
   { from: ['lighthouse'], passive: 'unionCape', into: 'beacon' },
   { from: ['cricketBall'], passive: 'pocketWatch', into: 'fastBowler' },
-  { from: ['gnome'], passive: 'brolly', into: 'gnomeArmy' }
+  { from: ['gnome'], passive: 'brolly', into: 'gnomeArmy' },
+  { from: ['shotgun'], passive: 'fuelCan', into: 'boomstick' },
+  { from: ['darts'], passive: 'horseshoe', into: 'bullseye' }
 ];
+
+// Evolved weapons keep levelling: 5 levels of damage, speed, projectiles and area
+ZN.EVO_MAX = 5;
+Object.keys(ZN.WEAPONS).forEach(function (id) {
+  var w = ZN.WEAPONS[id];
+  if (!w.evolved) return;
+  var base = w.stats;
+  w.max = ZN.EVO_MAX;
+  w.levels = [w.levels[0], '+20% damage', '+20% damage, -10% cooldown', '+20% damage, +1 projectile', '+20% damage, -10% cooldown, +15% area'];
+  w.stats = function (l) {
+    var s = base(1), m = 1 + 0.2 * ((l || 1) - 1);
+    if (s.dmg) s.dmg *= m;
+    if (s.burstDmg) s.burstDmg *= m;
+    if (l >= 3 && s.cd) s.cd *= 0.9;
+    if (l >= 5 && s.cd) s.cd *= 0.9;
+    if (l >= 4) { if (s.amount) s.amount += 1; if (s.blades) s.blades += 1; if (s.pellets) s.pellets += 2; if (s.beams) s.beams += 1; }
+    if (l >= 5) { if (s.radius) s.radius *= 1.15; if (s.len) s.len *= 1.15; if (s.beamLen) s.beamLen *= 1.15; }
+    return s;
+  };
+});
 
 // ---------------------------------------------------------------------------
 // Passive items (max level 5)
@@ -454,10 +502,10 @@ ZN.MAX_PASSIVE_SLOTS = 6;
 ZN.UNLOCKS = {
   1: ['pistol', 'iceSword', 'cheese', 'molotov', 'tea', 'wellies', 'fullEnglish', 'magnet', 'ammoBelt'],
   2: ['fireSword', 'cricketBat', 'bikeChain'],
-  3: ['crossbow', 'pocketWatch'],
+  3: ['crossbow', 'pocketWatch', 'shotgun'],
   4: ['hubcaps', 'brolly', 'cricketBall'],
   5: ['elecSword', 'landMine'],
-  6: ['lightning', 'fuelCan', 'bagpipes'],
+  6: ['lightning', 'fuelCan', 'bagpipes', 'darts'],
   7: ['flamethrower', 'unionCape', 'pigeon'],
   8: ['horseshoe', 'halberd'],
   9: ['harpoon', 'lighthouse'],
@@ -755,3 +803,19 @@ ZN.MINIBOSSES = {
   hooligan: { name: 'The Hooligan Firm Boss', color: '#c8202e', skin: '#d0a080', accessory: 'hooligan', abilities: ['frenzy', 'summon', 'charge'], minion: 'runner' },
   rugby:    { name: 'The Rugby Lock', color: '#2a4a8a', skin: '#c89a7a', accessory: 'rugby', abilities: ['pounce', 'slam'], minion: 'brute', speed: 50 }
 };
+
+// ---------------------------------------------------------------------------
+// Escalating wave threats: from wave 3, a new modifier joins every 2 waves (stacking).
+// Higher-tier counties start them a wave earlier.
+// ---------------------------------------------------------------------------
+ZN.WAVE_MODS = {
+  armoured:     { name: 'Armoured',      icon: '🛡️', desc: 'Zombies have +35% HP' },
+  sprinters:    { name: 'Sprinters',     icon: '🏃', desc: 'Zombies move 18% faster' },
+  bloodthirsty: { name: 'Bloodthirsty',  icon: '🩸', desc: 'Zombies hit 25% harder' },
+  regenerating: { name: 'Regenerating',  icon: '💚', desc: 'Zombies slowly heal' },
+  surge:        { name: 'Surge',         icon: '🌊', desc: '30% more zombies' },
+  splitters:    { name: 'Splitters',     icon: '🪱', desc: 'Shamblers split into crawlers when killed' },
+  volatile:     { name: 'Volatile',      icon: '💣', desc: 'Some zombies explode when killed' },
+  shielded:     { name: 'Ironclad Elite', icon: '⚙️', desc: 'Brutes and lieutenants take 25% less damage' }
+};
+ZN.WAVE_MODS_MAX = 5;

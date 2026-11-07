@@ -7,6 +7,7 @@ A Vampire Survivors-style Android game set across a zombie-overrun United Kingdo
 - **Campaign map**: 69 counties and regions across England, Wales, Scotland and Northern Ireland (with ferry links to Northern Ireland). Your first mission can be anywhere. After that you can only attack counties that border one you've already liberated.
 - **Waves**: each new county has one more wave than the last (capped at 20). Each wave is 40 seconds (the first mission's single wave is 60s), and you finish by killing the horde boss. Zombies get tougher with every wave and every county you take.
 - **Enemies**: Shamblers, Runners, Crawler swarms, Brutes, acid-spitting Spitters, exploding Bloaters, Red Kites, and treasure-carrying Elites.
+- **Escalating threats**: from wave 3 a new modifier joins every couple of waves and they stack (Armoured, Sprinters, Bloodthirsty, Regenerating, Surge, Splitters, Volatile, Ironclad Elite), so late waves get much nastier.
 - **County traits**: every county has a signature twist shown on the map: Restless Graves (the dead erupt around you), Sea Fret (fog), Blackout (torchlight only), Crawler Infestation, Spitter Nest, Brute Squad, Gas Leak, Boggy Ground (slowing peat bogs), Thunderstorm (telegraphed lightning), Hidden Hoard (extra coins) and Supply Drops (extra power-ups).
 - **Solid terrain**: trees, rocks, haybales, cars, bins and gravestones block you and the horde, so each region plays differently.
 - **Lieutenant mini bosses** end every wave (and appear mid-way through the final wave): The Butcher of Smithfield, The Plague Doctor (poison clouds), The Headless Horseman, The Bog Witch, The Unholy Vicar (heals the horde), The Hooligan Firm Boss (frenzies the horde) and The Rugby Lock.
@@ -26,7 +27,7 @@ A Vampire Survivors-style Android game set across a zombie-overrun United Kingdo
 - **Backup / Restore**: export your save as a code (copy it or share it to email or Drive) and restore it on another device.
 - **Feel**: screen shake, slow-motion on evolutions and boss kills, and vibration on hits, level-ups and big moments. Each can be toggled.
 - **In-mission levelling**: collect XP gems, then pick new weapons, passives or upgrades. You get 6 weapon slots and 6 passive slots.
-- **Weapons**: Service Pistol, Ice Sword, Fire Sword, Electric Sword, Crossbow, Molotov, Stinking Bishop (cheese aura), Hubcaps (orbit), Lightning Rod, Flamethrower, Cricket Bat, Bagpipes, Beefeater Halberd, Harpoon Gun, Bike Chain (lash), Land Mines, Carrier Pigeons (homing), Lighthouse Lamp (sweeping beam), Cricket Ball (ricochet), Garden Gnome (turret).
+- **Weapons**: Service Pistol, Ice Sword, Fire Sword, Electric Sword, Crossbow, Molotov, Stinking Bishop (cheese aura), Hubcaps (orbit), Lightning Rod, Flamethrower, Cricket Bat, Bagpipes, Beefeater Halberd, Harpoon Gun, Double-Barrel Shotgun, Pub Darts (crits), Bike Chain (lash), Land Mines, Carrier Pigeons (homing), Lighthouse Lamp (sweeping beam), Cricket Ball (ricochet), Garden Gnome (turret).
 - **Evolutions**:
   | Recipe | Result |
   |---|---|
@@ -50,6 +51,10 @@ A Vampire Survivors-style Android game set across a zombie-overrun United Kingdo
   | Lighthouse Lamp + Union Flag Cape | Beacon of Albion |
   | Cricket Ball + Pocket Watch | Fast Bowler |
   | Garden Gnome + Brolly | Gnome Army |
+  | Double-Barrel Shotgun + Fuel Can | Incendiary Boomstick |
+  | Pub Darts + Lucky Horseshoe | One Hundred and Eighty! |
+
+  Evolved weapons can be levelled five more times (+20% damage per level, plus faster fire, extra projectiles and more area).
 - **Coins** (kept even if you die) buy permanent upgrades, with steeply rising prices:
   - **Shop**: 17 upgrades with up to 10 ranks each (Might, Vitality, Armour, Haste, Greed, Second Wind...), plus **Reroll / Skip / Banish** charges for the level-up screen.
   - **Weapon Mastery** (Armoury): train each weapon up to 5 stars for +6% damage per star; mastered weapons start at level 2. Evolutions inherit their ingredients' mastery.
