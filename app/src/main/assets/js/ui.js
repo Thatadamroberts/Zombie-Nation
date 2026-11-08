@@ -20,6 +20,7 @@
     if (name === 'survivors') renderSurvivors();
     if (name === 'achievements') renderAchievements();
     if (name === 'daily') renderDaily();
+    if (name === 'event') renderEvent();
     if (name === 'title') { updateSoundButtons(); updateTitleBadges(); }
     if (name !== 'game') ZN.Music.play('menu');
   }
@@ -44,7 +45,60 @@
     $('btn-music').textContent = m; $('pause-music').textContent = m;
   }
 
+  function fmtDate(d) { return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); }
+  function updateSeasonBanner() {
+    var se = ZN.currentSeason(), btn = $('season-btn'), nx = $('season-next');
+    if (se) {
+      var tk = (Save.data.tokens || {})[se.id] || 0;
+      btn.innerHTML = se.icon + ' ' + se.name + ' event <span class="badge">' + se.token + ' ' + fmt(tk) + '</span><div style="font-size:12px;font-weight:600;opacity:0.8">Until ' + fmtDate(ZN.seasonEnd(se)) + '</div>';
+      btn.style.borderColor = se.color;
+      btn.classList.remove('hidden'); nx.textContent = '';
+    } else {
+      btn.classList.add('hidden');
+      var n = ZN.nextSeason();
+      nx.textContent = n ? 'Next event: ' + n.season.icon + ' ' + n.season.name + ' in ' + n.days + ' day' + (n.days === 1 ? '' : 's') : '';
+    }
+  }
+
+  function renderEvent() {
+    var se = ZN.currentSeason(), body = $('event-body'), d = Save.data;
+    if (!se) { show('title'); return; }
+    d.tokens = d.tokens || {};
+    var tk = d.tokens[se.id] || 0, w = ZN.WEAPONS[se.weapon], boss = ZN.BOSSES[se.boss];
+    $('event-title').textContent = se.icon + ' ' + se.name;
+    $('event-tokens').textContent = se.token + ' ' + fmt(tk);
+    body.innerHTML = '<div class="event-hero" style="border-color:' + se.color + '"><div class="big">' + se.icon + '</div><h2>' + se.name + '</h2><div class="desc" style="color:#cfd5dc">' + se.desc +
+      '</div><div class="desc" style="color:var(--muted);margin-top:8px">Ends ' + fmtDate(ZN.seasonEnd(se)) + '</div></div>' +
+      '<div class="section-h">This event</div>' +
+      '<div class="item"><div class="ico">' + w.icon + '</div><div class="body"><div class="name">' + w.name + '</div><div class="desc">' + w.levels[0] + ' In the level-up pool for the whole event.</div></div></div>' +
+      '<div class="item"><div class="ico">👹</div><div class="body"><div class="name">' + boss.name + '</div><div class="desc">The seasonal boss leads the horde in many missions and every daily challenge.</div></div></div>' +
+      '<div class="item"><div class="ico">' + se.token + '</div><div class="body"><div class="name">' + se.tokenName + '</div><div class="desc">Dropped by zombies, lieutenants and bosses during the event. Spend them below.</div></div></div>' +
+      '<div class="section-h">Event shop</div>';
+    ZN.EVENT_SHOP.forEach(function (it) {
+      var owned = it.id === 'weapon' && d.items[se.weapon];
+      var row = el('div', 'item');
+      row.appendChild(el('div', 'ico', it.id === 'weapon' ? w.icon : it.id === 'coins' ? '💰' : '⭐'));
+      var b2 = el('div', 'body');
+      b2.appendChild(el('div', 'name', it.id === 'weapon' ? 'Keep ' + w.name + ' forever' : it.name));
+      b2.appendChild(el('div', 'desc', it.desc));
+      row.appendChild(b2);
+      var b = el('button', 'btn buy' + (owned ? '' : ' primary'), owned ? 'OWNED' : se.token + ' ' + it.cost);
+      b.disabled = owned || tk < it.cost;
+      b.onclick = function () {
+        if (owned || tk < it.cost) return;
+        d.tokens[se.id] = tk - it.cost;
+        if (it.id === 'weapon') { d.items[se.weapon] = true; toast(w.icon + ' ' + w.name + ' is yours to keep!'); }
+        if (it.id === 'coins') { d.coins += 1500; toast('💰 +1,500 coins'); }
+        if (it.id === 'xp') { var lv = Save.addAccountXp(2000); toast('⭐ +2,000 survivor XP' + (lv.length ? ' · Level ' + d.accLevel + '!' : '')); }
+        Save.save(); ZN.Audio.play('coin'); renderEvent();
+      };
+      row.appendChild(b);
+      body.appendChild(row);
+    });
+  }
+
   function updateTitleBadges() {
+    updateSeasonBanner();
     var dl = Save.daily();
     $('daily-badge').classList.toggle('hidden', dl.done);
     var tc = Save.tierCounts();
@@ -162,12 +216,13 @@
     tag.className = 'tag ' + st;
     tag.textContent = threat ? 'UNDER ATTACK' : cleared ? 'LIBERATED' : avail ? 'ATTACKABLE' : 'OVERRUN';
     var tier = threat ? Save.clearedCount() : cleared ? waves - 1 : Save.clearedCount();
-    var boss = ZN.BOSSES[ZN.bossFor(c)];
+    var boss = ZN.BOSSES[ZN.bossFor(c)], seP = ZN.currentSeason();
     var threatLvl = ['Low', 'Moderate', 'High', 'Severe', 'Extreme', 'Apocalyptic'][Math.min(5, Math.floor(tier / 4))];
     var neighbours = c.adj.map(function (n) { return ZN.MAP.byId[n].short; }).join(', ');
     var trait = ZN.TRAITS[ZN.traitFor(c)];
     var info = '<b>' + waves + '</b> wave' + (waves > 1 ? 's' : '') + ' + <b>' + boss.name + '</b> · Threat: <b>' + threatLvl + '</b>' +
-      '<br>' + trait.icon + ' <b>' + trait.name + '</b>: ' + trait.desc + '<br>Borders: ' + neighbours;
+      '<br>' + trait.icon + ' <b>' + trait.name + '</b>: ' + trait.desc +
+      (seP ? '<br>' + seP.icon + ' <b>' + seP.name + '</b>: ' + ZN.BOSSES[seP.boss].name + ' may lead the horde' : '') + '<br>Borders: ' + neighbours;
     if (!avail) info += '<br><span style="color:#f99">Liberate a neighbouring county first.</span>';
     if (threat) info += '<br><span style="color:#ff8080"><b>The horde is counter-attacking!</b> Win here within ' + Save.data.threats[id] + ' mission' + (Save.data.threats[id] > 1 ? 's' : '') + ' or it falls.</span>';
     else if (cleared) info += '<br>Replay to farm coins and XP.';
@@ -332,7 +387,7 @@
 
   // -------------------------------------------------------------- daily
   function renderDaily() {
-    var body = $('daily-body'), dl = Save.daily(), c = dl.county, boss = ZN.BOSSES[ZN.bossFor(c)];
+    var body = $('daily-body'), dl = Save.daily(), c = dl.county, dse = ZN.currentSeason(), boss = ZN.BOSSES[dse ? dse.boss : ZN.bossFor(c)];
     $('daily-coins').textContent = fmt(Save.data.coins);
     var html = '<div class="daily-card"><div class="section-h" style="margin:0 0 6px">' + new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) + '</div>' +
       '<h2>' + c.name + '</h2><div class="desc" style="color:var(--muted)">' + ZN.DAILY_WAVES + ' waves + ' + boss.name + '<br>' +
@@ -405,7 +460,8 @@
       row.appendChild(icon(isUnlocked ? ic : '🔒', color));
       var body = el('div', 'body');
       body.appendChild(el('div', 'name', nm));
-      body.appendChild(el('div', 'desc', isUnlocked ? desc : 'Unlocks at Survivor Level ' + Save.unlockLevelOf(id)));
+      var wsea = ZN.WEAPONS[id] && ZN.WEAPONS[id].season, ssea = wsea && ZN.SEASONS.filter(function (x) { return x.id === wsea; })[0];
+      body.appendChild(el('div', 'desc', isUnlocked ? desc : ssea ? 'Seasonal: available during ' + ssea.icon + ' ' + ssea.name + ', or keep it forever via the event shop.' : 'Unlocks at Survivor Level ' + Save.unlockLevelOf(id)));
       row.appendChild(body);
       return row;
     }
@@ -461,9 +517,20 @@
     });
   }
 
+  function updateEventHud(g) {
+    var box = $('hud-event'), ev = g.wevent;
+    if (!ev) { box.classList.add('hidden'); return; }
+    var info = ZN.WAVE_EVENTS[ev.type], left = Math.max(0, Math.ceil(ev.limit - ev.t)), txt = info.icon + ' ' + info.name, pct = null;
+    if (ev.type === 'convoy') { txt += ' · ' + Math.max(0, Math.round(ev.van.hp)) + '% HP' + (ev.van.moving ? '' : ' · stay close!'); pct = ev.van.hp; }
+    if (ev.type === 'crates') txt += ' · ' + ev.crates.filter(function (c) { return c.taken && !c.lost; }).length + '/3';
+    if (ev.type === 'hold') { pct = ev.prog / ev.need * 100; txt += ev.inside ? ' · holding' : ' · get in the zone'; }
+    box.innerHTML = txt + ' · ' + left + 's' + (pct !== null ? '<div class="ev-bar"><div style="width:' + Math.max(0, Math.min(100, pct)) + '%"></div></div>' : '');
+    box.classList.remove('hidden');
+  }
+
   function updateHud(g) {
     var p = g.player;
-    updateBuffs(g);
+    updateBuffs(g); updateEventHud(g);
     $('hud-xp').style.width = Math.min(100, p.xp / p.xpNext * 100) + '%';
     $('hud-level').textContent = 'LV ' + p.level;
     $('hud-wave').textContent = g.bossPhase ? 'BOSS FIGHT · ' + g.county.short : 'Wave ' + (g.waveIdx + 1) + '/' + g.waves + ' · ' + Math.max(0, Math.ceil(g.waveDur - g.waveTime)) + 's';
@@ -600,6 +667,8 @@
     r.evolved.forEach(function (id) { d.stats.evolved[id] = true; });
     if (r.win) { d.stats.bosses[r.bossKey] = true; d.stats.bossKills++; }
     d.stats.timePlayed += r.time; d.stats.coinsEarned += coins; d.stats.buffs += r.buffs || 0;
+    d.stats.eventsDone = (d.stats.eventsDone || 0) + (r.eventsDone || 0);
+    if (r.season && r.tokens) { d.tokens = d.tokens || {}; d.tokens[r.season] = (d.tokens[r.season] || 0) + r.tokens; d.stats.tokens = (d.stats.tokens || 0) + r.tokens; }
     if (r.win && r.damageTaken === 0) d.stats.noHitWins++;
     var threats = isDaily ? { defended: null, fallen: [], newThreat: null } : Save.updateThreats(county.id, r.win);
     if (threats.defended) d.stats.defended++;
@@ -619,6 +688,8 @@
     ];
     if (bonus) rows.push([firstClear ? 'Liberation bonus' : defending ? 'Defence bonus' : 'Replay bonus', '💰 ' + fmt(bonus)]);
     if (dailyBonus) rows.push(['Daily challenge', '💰 ' + fmt(dailyBonus)]);
+    if (r.eventsDone) rows.push(['Wave events completed', r.eventsDone]);
+    if (r.season && r.tokens) { var sz = ZN.SEASONS.filter(function (x) { return x.id === r.season; })[0]; rows.push([sz.tokenName + ' collected', sz.token + ' ' + r.tokens]); }
     rows.push(['Survivor XP', '+' + fmt(accXp)]);
     var html = rows.map(function (x) { return '<div class="res-row"><span>' + x[0] + '</span><b>' + x[1] + '</b></div>'; }).join('');
     gained.forEach(function (gl) {

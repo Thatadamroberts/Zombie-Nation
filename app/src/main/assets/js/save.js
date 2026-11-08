@@ -6,9 +6,9 @@
   function defaults() {
     return { v: 1, coins: 0, accXp: 0, accLevel: 1, cleared: {}, shop: {}, sound: true, haptics: true, shake: true,
       character: 'tommy', owned: { tommy: true }, threats: {}, music: true,
-      achievements: {}, achTiers: null, pets: {}, pet: null, items: {}, daily: { date: '', won: false },
+      achievements: {}, achTiers: null, pets: {}, pet: null, items: {}, daily: { date: '', won: false }, tokens: {},
       stats: { kills: 0, runs: 0, wins: 0, bestLevel: 0, evolved: {}, bosses: {}, dailies: 0, noHitWins: 0, defended: 0,
-        bossKills: 0, timePlayed: 0, coinsEarned: 0, buffs: 0 },
+        bossKills: 0, timePlayed: 0, coinsEarned: 0, buffs: 0, tokens: 0, eventsDone: 0 },
       seenIntro: false };
   }
 
@@ -174,6 +174,8 @@
       var set = {}, lvl = Save.data.accLevel;
       for (var l in ZN.UNLOCKS) if (+l <= lvl) ZN.UNLOCKS[l].forEach(function (id) { set[id] = true; });
       for (var it in Save.data.items) set[it] = true;
+      var season = ZN.currentSeason();
+      if (season) set[season.weapon] = true;
       return set;
     },
     unlockLevelOf: function (id) {

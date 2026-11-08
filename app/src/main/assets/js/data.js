@@ -320,6 +320,35 @@ ZN.WEAPONS = {
         crit: 0.2 + (l >= 3 ? 0.15 : 0), critMul: l >= 6 ? 3 : 2 };
     }
   },
+  // ---- Seasonal weapons (in the pool during their event, or unlocked for good in the event shop) ----
+  fireworks: {
+    name: 'Roman Candle', icon: '🎆', color: '#ff5ad1', kind: 'Seasonal · Explosive', max: 6, season: 'bonfire',
+    levels: ['Launches fireworks that burst over the horde.', '+1 rocket', '+8 damage', '+20% burst size', '+1 rocket', '+10 damage, -20% cooldown'],
+    stats: function (l) {
+      return { dmg: 22 + (l >= 3 ? 8 : 0) + (l >= 6 ? 10 : 0), cd: l >= 6 ? 1.2 : 1.5, amount: 1 + (l >= 2 ? 1 : 0) + (l >= 5 ? 1 : 0), radius: 52 * (l >= 4 ? 1.2 : 1) };
+    }
+  },
+  pumpkin: {
+    name: "Jack-o'-Lantern Bombs", icon: '🎃', color: '#ff8a1a', kind: 'Seasonal · Explosive', max: 6, season: 'halloween',
+    levels: ['Lobs grinning pumpkins that explode and set zombies alight.', '+1 pumpkin', '+20% blast', '+8 damage', '+1 pumpkin', '+10 damage, stronger burn'],
+    stats: function (l) {
+      return { dmg: 26 + (l >= 4 ? 8 : 0) + (l >= 6 ? 10 : 0), cd: 1.9, amount: 1 + (l >= 2 ? 1 : 0) + (l >= 5 ? 1 : 0), radius: 60 * (l >= 3 ? 1.2 : 1), burn: l >= 6 ? 8 : 4 };
+    }
+  },
+  snowball: {
+    name: 'Snowball Volley', icon: '❄️', color: '#e6f4ff', kind: 'Seasonal · Frost', max: 6, season: 'christmas',
+    levels: ['Hurls snowballs that freeze zombies solid.', '+1 snowball', '+6 damage', 'Longer freeze', '+2 snowballs', '+8 damage, -20% cooldown'],
+    stats: function (l) {
+      return { dmg: 12 + (l >= 3 ? 6 : 0) + (l >= 6 ? 8 : 0), cd: l >= 6 ? 0.8 : 1.0, amount: 3 + (l >= 2 ? 1 : 0) + (l >= 5 ? 2 : 0), freeze: l >= 4 ? 1.2 : 0.7 };
+    }
+  },
+  eggs: {
+    name: 'Egg Grenades', icon: '🥚', color: '#ffe680', kind: 'Seasonal · Cluster', max: 6, season: 'easter',
+    levels: ['Lobs eggs that burst into a spray of chocolate shrapnel.', '+1 egg', '+2 shrapnel', '+8 damage', '+1 egg', '+10 damage, +2 shrapnel'],
+    stats: function (l) {
+      return { dmg: 20 + (l >= 4 ? 8 : 0) + (l >= 6 ? 10 : 0), cd: 1.8, amount: 1 + (l >= 2 ? 1 : 0) + (l >= 5 ? 1 : 0), radius: 46, shards: 5 + (l >= 3 ? 2 : 0) + (l >= 6 ? 2 : 0) };
+    }
+  },
   // ---- Evolutions ----
   minigun: {
     name: 'Minigun', icon: '🔫', color: '#ffd166', kind: 'Evolved · Ranged', max: 1, evolved: true,
@@ -819,3 +848,75 @@ ZN.WAVE_MODS = {
   shielded:     { name: 'Ironclad Elite', icon: '⚙️', desc: 'Brutes and lieutenants take 25% less damage' }
 };
 ZN.WAVE_MODS_MAX = 5;
+
+// ---------------------------------------------------------------------------
+// Wave events: an objective pops up part-way through each wave
+// ---------------------------------------------------------------------------
+ZN.WAVE_EVENTS = {
+  convoy: { name: 'Escort the Ambulance', icon: '🚑', desc: 'Stay close so it keeps driving, and keep the zombies off it!' },
+  crates: { name: 'Supply Drop', icon: '📦', desc: 'Grab the supply crates before the looters do!' },
+  hold:   { name: 'Hold the Line', icon: '🚩', desc: 'Stand in the zone until it is secured!' },
+  bounty: { name: 'Wanted', icon: '💰', desc: 'A golden zombie is fleeing with loot. Catch it!' }
+};
+
+// ---------------------------------------------------------------------------
+// Seasonal events, driven by the device date. [month, day] inclusive ranges.
+// ---------------------------------------------------------------------------
+ZN.SEASONS = [
+  { id: 'halloween', name: 'Halloween', icon: '🎃', token: '🍬', tokenName: 'Sweets', from: [10, 18], to: [10, 31], boss: 'pumpkinKing', weapon: 'pumpkin',
+    overlay: 'bats', color: '#ff8a1a', desc: 'The dead are restless. Pumpkin heads, the Pumpkin King and sweets to collect.' },
+  { id: 'bonfire', name: 'Bonfire Night', icon: '🎆', token: '🎇', tokenName: 'Sparklers', from: [11, 1], to: [11, 12], boss: 'guyFawkes', weapon: 'fireworks',
+    overlay: 'fireworks', color: '#ff5ad1', desc: 'Remember, remember... Guy Fawkes has risen with a keg of gunpowder. Fireworks light up the sky.' },
+  { id: 'christmas', name: 'Christmas', icon: '🎄', token: '🎁', tokenName: 'Presents', from: [12, 10], to: [1, 5], boss: 'krampus', weapon: 'snowball',
+    overlay: 'snow', color: '#7dd0ff', desc: 'Snow falls over Britain and Krampus stalks the naughty list.' },
+  { id: 'easter', name: 'Easter', icon: '🐰', token: '🥚', tokenName: 'Eggs', from: [3, 25], to: [4, 20], boss: 'wickerRabbit', weapon: 'eggs',
+    overlay: 'petals', color: '#ffe680', desc: 'The Wicker Rabbit has come to life. Hunt eggs across the counties.' }
+];
+ZN.seasonInRange = function (s, d) {
+  var m = d.getMonth() + 1, day = d.getDate(), v = m * 100 + day, a = s.from[0] * 100 + s.from[1], b = s.to[0] * 100 + s.to[1];
+  return a <= b ? (v >= a && v <= b) : (v >= a || v <= b);
+};
+ZN.forceSeason = null; // set to a season id to preview an event
+ZN.currentSeason = function () {
+  var now = new Date();
+  for (var i = 0; i < ZN.SEASONS.length; i++) {
+    var s = ZN.SEASONS[i];
+    if (ZN.forceSeason ? ZN.forceSeason === s.id : ZN.seasonInRange(s, now)) return s;
+  }
+  return null;
+};
+ZN.nextSeason = function () {
+  var now = new Date(), best = null, bestDays = 999;
+  ZN.SEASONS.forEach(function (s) {
+    var start = new Date(now.getFullYear(), s.from[0] - 1, s.from[1]);
+    if (start < now) start = new Date(now.getFullYear() + 1, s.from[0] - 1, s.from[1]);
+    var days = Math.ceil((start - now) / 86400000);
+    if (days < bestDays) { bestDays = days; best = { season: s, start: start, days: days }; }
+  });
+  return best;
+};
+ZN.seasonEnd = function (s) {
+  var now = new Date(), y = now.getFullYear();
+  if (s.to[0] < s.from[0] && now.getMonth() + 1 >= s.from[0]) y++;
+  return new Date(y, s.to[0] - 1, s.to[1]);
+};
+// Event shop: spend seasonal tokens
+ZN.EVENT_SHOP = [
+  { id: 'weapon', name: 'Permanent weapon unlock', desc: 'Keep this season’s weapon in your pool all year round.', cost: 150 },
+  { id: 'coins', name: 'Coin hamper', desc: '1,500 coins. Can be bought again and again.', cost: 40, repeat: true },
+  { id: 'xp', name: 'Survivor XP crate', desc: '+2,000 survivor XP. Can be bought again and again.', cost: 30, repeat: true }
+];
+
+// Seasonal bosses
+ZN.BOSSES.guyFawkes = { name: 'Guy Fawkes', hpMul: 1.15, speed: 46, r: 34, color: '#1a1a22', skin: '#f0e8d8', shape: 'guy', abilities: ['kegs', 'volley', 'kegs', 'summon'], minion: 'runner', shot: '#ff5ad1' };
+ZN.BOSSES.pumpkinKing = { name: 'The Pumpkin King', hpMul: 1.2, speed: 44, r: 38, color: '#3a5a1a', skin: '#ff8a1a', shape: 'pumpkinKing', abilities: ['homing', 'summon', 'leap'], minion: 'shambler', shot: '#ffb030' };
+ZN.BOSSES.krampus = { name: 'Krampus', hpMul: 1.25, speed: 52, r: 36, color: '#3a2418', skin: '#5a3a2a', shape: 'krampus', abilities: ['pounce', 'charge', 'summon'], minion: 'runner' };
+ZN.BOSSES.wickerRabbit = { name: 'The Wicker Rabbit', hpMul: 1.1, speed: 54, r: 34, color: '#a07a3a', skin: '#d0a860', shape: 'wickerRabbit', abilities: ['leap', 'leap', 'summon'], minion: 'runner' };
+
+// Achievements for the new systems
+ZN.ACHIEVEMENTS.push(
+  { id: 'hero', icon: '🚑', name: 'Hero of the Hour', desc: 'Complete {n} wave events.', value: function (x) { return x.stats.eventsDone || 0; },
+    tiers: [[5, { coins: 200 }], [25, { coins: 600 }], [100, { coins: 2000 }]] },
+  { id: 'festive', icon: '🎉', name: 'Festive Spirit', desc: 'Collect {n} seasonal tokens.', value: function (x) { return x.stats.tokens || 0; },
+    tiers: [[50, { coins: 300 }], [250, { coins: 1000 }], [1000, { coins: 3000 }]] }
+);

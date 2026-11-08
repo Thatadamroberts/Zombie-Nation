@@ -18,6 +18,8 @@
         <div class="logo-sub">Survive. Upgrade. Take back Britain.</div>
       </div>
       <div class="menu">
+        <button class="btn big season-btn hidden" id="season-btn" data-go="event"></button>
+        <div id="season-next" class="season-next"></div>
         <button class="btn big primary" data-go="map">Campaign</button>
         <button class="btn big daily-btn" data-go="daily">📅 Daily Challenge <span id="daily-badge" class="badge hidden">NEW</span></button>
         <button class="btn big" data-go="survivors">Survivors</button>
@@ -82,6 +84,16 @@
     <div class="scroll-list" id="survivor-list"></div>
   </section>
 
+  <!-- Seasonal event -->
+  <section id="screen-event" class="screen">
+    <header class="topbar">
+      <button class="btn icon" data-go="title">‹</button>
+      <div class="screen-title" id="event-title">Event</div>
+      <div class="coins"><span id="event-tokens">0</span></div>
+    </header>
+    <div class="scroll-list" id="event-body"></div>
+  </section>
+
   <!-- Achievements -->
   <section id="screen-achievements" class="screen">
     <header class="topbar">
@@ -130,6 +142,10 @@
       <p>Zombies sometimes drop glowing power-ups: Double Weapons, Double Speed, Invincible (trample everything!), Double XP and Deep Freeze. Elites always drop one. Walk over them to grab them before they fade.</p>
       <p>Companions can never be hurt, and each gives you a bonus: the Vampire Bat heals you with every bite, the Owl boosts XP, the Black Cat brings luck and the Hedgehog gives you thorns.</p>
       <p>Buy new survivors with coins: each starts with a different weapon and perks. Every region has its own horde boss, from Nessie in the Highlands to the Stonehenge Druid. Watch for red warning circles: get out before the slam lands!</p>
+      <h3>Wave events</h3>
+      <p>Part-way through each wave an objective appears: escort the ambulance to the hospital (it only moves while you stay close), grab supply crates before the looters, hold a zone while the horde surges, or chase down a golden Wanted zombie. Succeed for chests, coins, XP and power-ups.</p>
+      <h3>Seasonal events</h3>
+      <p>Halloween, Bonfire Night, Christmas and Easter each bring a seasonal boss, a seasonal weapon, festive zombies and tokens to collect. Spend tokens in the event shop, for example to keep the seasonal weapon forever.</p>
       <h3>Escalating threats</h3>
       <p>In longer missions the horde adapts. From wave 3, a new threat joins every couple of waves and they stack: Armoured, Sprinters, Bloodthirsty, Regenerating, Surge, Splitters, Volatile and Ironclad Elites. Active threats show as red chips on the HUD. Evolved weapons can now be levelled up five more times to keep pace.</p>
       <h3>Daily challenge</h3>
@@ -158,6 +174,7 @@
         <div class="hud-stat">💰 <span id="hud-coins">0</span></div>
         <button class="btn icon pause" id="btn-pause">II</button>
       </div>
+      <div id="hud-event" class="hud-event hidden"></div>
       <div id="hud-items"></div>
       <div id="hud-buffs"></div>
       <div id="hud-boss" class="hidden"><div class="boss-name" id="hud-bossname">The Abomination</div><div class="bar boss"><div id="hud-bossbar" class="bar-fill boss"></div></div></div>

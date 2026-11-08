@@ -209,3 +209,13 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 
 .buff-chip.threat { border-color: #ff4a4a; color: #ffb0b0; background: rgba(60,10,10,0.85); animation: none; }
 .hi.evo { box-shadow: 0 0 8px rgba(255,216,74,0.6); }
+
+.season-btn { background: linear-gradient(180deg, #5a1a6a, #2a0e3a); border-color: #ff5ad1; }
+.season-next { color: var(--muted); font-size: 13px; margin-top: 6px; }
+.hud-event { margin-top: 6px; padding: 5px 10px; border-radius: 10px; background: rgba(15,18,22,0.85); border: 2px solid #ffd23a; font-size: 13px; font-weight: 800;
+  text-shadow: 1px 1px 0 #000; display: inline-block; }
+.hud-event .ev-bar { height: 4px; background: #000; border-radius: 3px; margin-top: 4px; overflow: hidden; }
+.hud-event .ev-bar div { height: 100%; background: #5aff8a; }
+.event-hero { text-align: center; padding: 18px 14px; border-radius: 16px; margin-bottom: 12px; border: 2px solid; }
+.event-hero .big { font-size: 56px; }
+.event-hero h2 { margin: 6px 0; font-size: 24px; }

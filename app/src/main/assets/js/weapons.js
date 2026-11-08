@@ -16,7 +16,7 @@
     g.projectiles.push({ x: g.player.x, y: g.player.y, vx: Math.cos(ang) * o.speed, vy: Math.sin(ang) * o.speed,
       r: o.r, dmg: o.dmg, pierce: o.pierce, life: o.life, hit: {}, kind: o.kind, color: o.color, kb: o.kb || 0,
       burn: o.burn, slow: o.slow, freeze: o.freeze, silent: o.silent, grow: o.grow, drag: o.drag, maxLife: o.life,
-      speed: o.speed, boomerang: o.boomerang, chain: o.chain, homing: o.homing, bounce: o.bounce, crit: o.crit, critMul: o.critMul });
+      speed: o.speed, boomerang: o.boomerang, chain: o.chain, homing: o.homing, bounce: o.bounce, crit: o.crit, critMul: o.critMul, explode: o.explode });
   }
 
   // Melee arc. Returns enemies hit.
@@ -288,7 +288,61 @@
     ZN.Audio.play('shoot', 120);
   }
 
+  // Seasonal: lobbed explosives (pumpkins, eggs)
+  function lob(g, s, count, icon, onLand) {
+    var p = g.player;
+    for (var i = 0; i < count; i++) {
+      var tg = g.randomEnemyOnScreen(), tx, ty;
+      if (tg && Math.abs(tg.x - p.x) < 300 && Math.abs(tg.y - p.y) < 300) { tx = tg.x; ty = tg.y; }
+      else { var a = Math.random() * TAU, d = rand(60, 180); tx = p.x + Math.cos(a) * d; ty = p.y + Math.sin(a) * d; }
+      g.effects.push({ kind: 'lob', sx: p.x, sy: p.y, tx: tx, ty: ty, t: 0, T: 0.5, icon: icon });
+      (function (x, y) { setTimeoutGame(g, 0.5, function () { onLand(x, y); }); })(tx, ty);
+    }
+  }
+
   ZN.WEAPON_LOGIC = {
+    fireworks: function (g, w, s, dt) {
+      if (w.t > 0) { w.t -= dt; return; }
+      var p = g.player, tgt = g.nearestEnemy(p.x, p.y, 400);
+      if (!tgt) return;
+      w.t = s.cd * g.stat.cooldown;
+      var n = s.amount + g.stat.amount, base = Math.atan2(tgt.y - p.y, tgt.x - p.x), cols = ['#ff5ad1', '#5ad1ff', '#ffd23a', '#7dff8a'];
+      for (var i = 0; i < n; i++) shoot(g, base + (i - (n - 1) / 2) * 0.3, { speed: 330, r: 5, dmg: s.dmg * 0.4, pierce: 1, life: 0.9, kind: 'rocket',
+        color: cols[(Math.random() * cols.length) | 0], homing: true, silent: true, explode: { r: s.radius, dmg: s.dmg } });
+      ZN.Audio.play('shoot', 120);
+    },
+    pumpkin: function (g, w, s, dt) {
+      if (!ready(g, w, s.cd, dt)) return;
+      lob(g, s, s.amount + g.stat.amount, '🎃', function (x, y) {
+        var R = s.radius * g.stat.area;
+        g.queryEnemies(x, y, R, function (e) { g.damage(e, s.dmg, { kb: 80, kx: e.x - x, ky: e.y - y, burn: s.burn, slow: 1, silent: true }); });
+        g.effects.push({ kind: 'boom', x: x, y: y, r: R, t: 0, T: 0.4, color: '#ff8a1a' });
+        g.emit(x, y, 10, '#ff8a1a', 160, 0.5, 3); ZN.Audio.play('boom', 90);
+      });
+    },
+    snowball: function (g, w, s, dt) {
+      if (w.t > 0) { w.t -= dt; return; }
+      var p = g.player, tgt = g.nearestEnemy(p.x, p.y, 380);
+      if (!tgt) return;
+      w.t = s.cd * g.stat.cooldown;
+      var n = s.amount + g.stat.amount, base = Math.atan2(tgt.y - p.y, tgt.x - p.x);
+      for (var i = 0; i < n; i++) shoot(g, base + (i - (n - 1) / 2) * 0.16, { speed: 420, r: 5, dmg: s.dmg, pierce: 1, life: 1, kind: 'snowball', freeze: s.freeze, slow: 2, kb: 30, silent: true });
+      ZN.Audio.play('shoot', 120);
+    },
+    eggs: function (g, w, s, dt) {
+      if (!ready(g, w, s.cd, dt)) return;
+      lob(g, s, s.amount + g.stat.amount, '🥚', function (x, y) {
+        var R = s.radius * g.stat.area;
+        g.queryEnemies(x, y, R, function (e) { g.damage(e, s.dmg, { kb: 60, kx: e.x - x, ky: e.y - y, silent: true }); });
+        g.effects.push({ kind: 'boom', x: x, y: y, r: R, t: 0, T: 0.35, color: '#ffe680' });
+        for (var k = 0; k < s.shards; k++) {
+          var a = k / s.shards * TAU;
+          g.projectiles.push({ x: x, y: y, vx: Math.cos(a) * 300, vy: Math.sin(a) * 300, r: 4, dmg: s.dmg * 0.5, pierce: 2, life: 0.45, maxLife: 0.45, hit: {}, kind: 'shard',
+            color: ['#7a4a2a', '#ff9ad1', '#9ad1ff'][k % 3], silent: true });
+        }
+        ZN.Audio.play('boom', 90);
+      });
+    },
     shotgun: function (g, w, s, dt) { shotgun(g, w, s, dt, false); },
     boomstick: function (g, w, s, dt) { shotgun(g, w, s, dt, true); },
     darts: function (g, w, s, dt) { darts(g, w, s, dt); },
