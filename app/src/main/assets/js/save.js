@@ -7,6 +7,7 @@
     return { v: 1, coins: 0, accXp: 0, accLevel: 1, cleared: {}, shop: {}, sound: true, haptics: true, shake: true,
       character: 'tommy', owned: { tommy: true }, threats: {}, music: true,
       achievements: {}, achTiers: null, pets: {}, pet: null, items: {}, daily: { date: '', won: false }, tokens: {},
+      relics: {}, relicEquip: [], relicsMigrated: false, ngPlus: 0,
       stats: { kills: 0, runs: 0, wins: 0, bestLevel: 0, evolved: {}, bosses: {}, dailies: 0, noHitWins: 0, defended: 0,
         bossKills: 0, timePlayed: 0, coinsEarned: 0, buffs: 0, tokens: 0, eventsDone: 0 },
       seenIntro: false };
@@ -50,6 +51,11 @@
     // Converts the old one-off achievements into tiers already earned (no rewards paid twice)
     migrate: function () {
       var d = Save.data;
+      // Relics for bosses beaten before relics existed
+      if (!d.relicsMigrated) {
+        d.relicsMigrated = true; d.relics = d.relics || {}; d.relicEquip = d.relicEquip || [];
+        Object.keys(d.stats.bosses || {}).forEach(function (k) { Save.grantRelic(k); });
+      }
       if (d.achTiers) return;
       d.achTiers = {};
       for (var old in d.achievements) {
@@ -157,6 +163,31 @@
       } catch (e) { return 'That code could not be read.'; }
     },
 
+    // ----- relics
+    relicSlots: function () { return ZN.relicSlots(Save.data.ngPlus); },
+    grantRelic: function (bossKey) {
+      var d = Save.data;
+      if (!ZN.RELICS[bossKey] || d.relics[bossKey]) return null;
+      d.relics[bossKey] = true;
+      if (d.relicEquip.length < Save.relicSlots()) d.relicEquip.push(bossKey);
+      return bossKey;
+    },
+    toggleRelic: function (id) {
+      var d = Save.data, i = d.relicEquip.indexOf(id);
+      if (i >= 0) { d.relicEquip.splice(i, 1); return true; }
+      if (!d.relics[id] || d.relicEquip.length >= Save.relicSlots()) return false;
+      d.relicEquip.push(id); return true;
+    },
+
+    // ----- New Game+
+    canNewGamePlus: function () { return Save.clearedCount() >= ZN.COUNTIES.length; },
+    startNewGamePlus: function () {
+      var d = Save.data;
+      d.ngPlus = (d.ngPlus || 0) + 1;
+      d.cleared = {}; d.threats = {}; d.lastCounty = null;
+    },
+    ngTierBonus: function () { return (Save.data.ngPlus || 0) * ZN.NG.tier; },
+
     clearedCount: function () { return Object.keys(Save.data.cleared).length; },
     isCleared: function (id) { return !!Save.data.cleared[id]; },
     isAvailable: function (id) {
@@ -167,7 +198,7 @@
     },
     wavesFor: function (id) {
       if (Save.isCleared(id)) return Save.data.cleared[id];
-      return Math.min(1 + Save.clearedCount(), ZN.MAX_WAVES);
+      return Math.min(1 + Save.clearedCount() + (Save.data.ngPlus || 0) * ZN.NG.waves, ZN.MAX_WAVES);
     },
 
     unlockedSet: function () {

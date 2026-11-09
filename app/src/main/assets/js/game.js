@@ -35,6 +35,7 @@
     this.input = { x: 0, y: 0 }; this.keys = {}; this.joy = null;
     this.char = ZN.characterById(opts.character);
     this.bossKey = ZN.bossFor(opts.county);
+    this.ng = opts.daily ? 0 : (opts.ng || 0);
     this.season = ZN.currentSeason();
     this.runTokens = 0; this.eventsDone = 0; this.wevent = null; this.eventWave = -1;
     // During a seasonal event the seasonal boss leads the horde in daily challenges and ~40% of missions
@@ -72,7 +73,7 @@
   G.computeStats = function () {
     var sh = ZN.Save.data.shop, r = function (k) { return sh[k] || 0; };
     var s = { maxHp: 100, regen: 0, speed: 130, might: 1, armor: 0, magnet: 65, amount: 0, cooldown: 1,
-      area: 1, duration: 1, luck: 1, growth: 1, greed: 1, crit: 0.03, revival: 0, block: 0, lifesteal: 0, thorns: 0 };
+      area: 1, duration: 1, luck: 1, growth: 1, greed: 1, crit: 0.03, revival: 0, block: 0, lifesteal: 0, thorns: 0, keg: 0, healOnKill: 0 };
     s.might += 0.05 * r('might'); s.maxHp *= 1 + 0.1 * r('maxHp'); s.armor += r('armor');
     s.regen += 0.1 * r('regen'); s.speed *= 1 + 0.05 * r('speed'); s.cooldown *= 1 - 0.03 * r('cooldown');
     s.area *= 1 + 0.05 * r('area'); s.duration *= 1 + 0.1 * r('duration'); s.amount += r('amount');
@@ -80,6 +81,7 @@
     s.greed += 0.1 * r('greed'); s.revival = r('revival');
     if (this.char) this.char.apply(s);
     if (this.petDef) this.petDef.apply(s);
+    (ZN.Save.data.relicEquip || []).forEach(function (id) { if (ZN.RELICS[id]) ZN.RELICS[id].apply(s); });
     if (this.buffs && this.buffs.doubleWeapons > 0) s.cooldown *= 0.5;
     if (this.buffs && this.buffs.doubleSpeed > 0) s.speed *= 2;
     if (this.mods && this.mods.glass) { s.maxHp *= 0.5; s.might *= 1.5; }
@@ -304,8 +306,8 @@
   // ----------------------------------------------------------- difficulty
   G.effLevel = function () { return this.waveIdx + Math.floor(this.tier / 4); };
   G.progress = function () { return this.bossPhase ? 1 : clamp(this.waveTime / this.waveDur, 0, 1); };
-  G.hpMult = function () { return (1 + 0.04 * this.tier) * (1 + 0.35 * this.waveIdx) * (1 + 0.3 * this.progress()); };
-  G.dmgMult = function () { return 1 + 0.03 * this.tier + 0.06 * this.waveIdx; };
+  G.hpMult = function () { return (1 + 0.04 * this.tier) * (1 + 0.35 * this.waveIdx) * (1 + 0.3 * this.progress()) * (1 + ZN.NG.hp * this.ng); };
+  G.dmgMult = function () { return (1 + 0.03 * this.tier + 0.06 * this.waveIdx) * (1 + ZN.NG.dmg * this.ng); };
 
   G.pickType = function () {
     var E = this.effLevel(), table = [['shambler', 10]], tr = this.trait;
@@ -452,7 +454,7 @@
 
   // How many wave threats are active for the current wave; returns the newly added one
   G.updateWaveMods = function () {
-    var start = this.tier >= 8 ? 1 : 2, w = this.waveIdx;
+    var start = Math.max(0, (this.tier >= 8 ? 1 : 2) - this.ng), w = this.waveIdx;
     var want = w < start ? 0 : Math.min(ZN.WAVE_MODS_MAX, Math.floor((w - start) / 2) + 1), added = null;
     while (this.waveModList.length < want) {
       added = this.modOrder[this.waveModList.length];
@@ -725,6 +727,13 @@
     if (Math.random() < 0.0015 * this.stat.luck) this.pickups.push({ type: 'magnet', x: e.x, y: e.y });
     if (def.elite && !def.bounty) this.pickups.push({ type: 'chest', x: e.x, y: e.y });
     if (def.bounty) this.bountyKilled(e);
+    if (this.stat.healOnKill && !this.victory) this.player.hp = Math.min(this.stat.maxHp, this.player.hp + this.stat.healOnKill);
+    if (this.stat.keg && !this.victory && !def.boss && Math.random() < this.stat.keg) {
+      var gk2 = this, kx = e.x, ky = e.y;
+      this.queryEnemies(kx, ky, 55, function (o) { if (o !== e) gk2.damage(o, 30, { kb: 80, kx: o.x - kx, ky: o.y - ky, silent: true, color: '#ffb03a' }); });
+      this.effects.push({ kind: 'boom', x: kx, y: ky, r: 55, t: 0, T: 0.35, color: '#ff9b30' });
+      ZN.Audio.play('boom', 150);
+    }
     if (this.season && !this.victory) {
       var tk = def.boss ? 6 : def.mini ? 2 : def.elite ? 1 : (Math.random() < 0.004 * this.stat.luck ? 1 : 0);
       for (var ti = 0; ti < tk; ti++) this.pickups.push({ type: 'token', x: e.x + rand(-14, 14), y: e.y + rand(-14, 14) });

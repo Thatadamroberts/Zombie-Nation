@@ -920,3 +920,49 @@ ZN.ACHIEVEMENTS.push(
   { id: 'festive', icon: '🎉', name: 'Festive Spirit', desc: 'Collect {n} seasonal tokens.', value: function (x) { return x.stats.tokens || 0; },
     tiers: [[50, { coins: 300 }], [250, { coins: 1000 }], [1000, { coins: 3000 }]] }
 );
+
+// ---------------------------------------------------------------------------
+// Boss relics: each boss drops its relic the first time it is defeated.
+// Equip a limited number (3 + 1 per New Game+ cycle).
+// ---------------------------------------------------------------------------
+ZN.RELICS = {
+  abomination:  { name: "Abomination's Heart", icon: '🫀', desc: '+15% max HP', apply: function (s) { s.maxHp *= 1.15; } },
+  colossus:     { name: 'Tower Halberd Head', icon: '🔱', desc: '+2 armour', apply: function (s) { s.armor += 2; } },
+  druid:        { name: "Druid's Sickle", icon: '🌙', desc: '+15% area', apply: function (s) { s.area *= 1.15; } },
+  kite:         { name: 'Red Kite Feather', icon: '🪶', desc: '+12% move speed', apply: function (s) { s.speed *= 1.12; } },
+  nessie:       { name: "Nessie's Scale", icon: '🐉', desc: '+1 revive per mission', apply: function (s) { s.revival += 1; } },
+  golem:        { name: 'Basalt Core', icon: '🪨', desc: '10% chance to block a hit', apply: function (s) { s.block += 0.1; } },
+  bogbeast:     { name: 'Bog Myrtle', icon: '🌿', desc: '+0.5 HP/s regeneration', apply: function (s) { s.regen += 0.5; } },
+  pitwraith:    { name: "Miner's Lamp", icon: '🔦', desc: '+40% pickup range, +10% XP', apply: function (s) { s.magnet *= 1.4; s.growth += 0.1; } },
+  kraken:       { name: 'Kraken Ink', icon: '🦑', desc: '+25% effect duration', apply: function (s) { s.duration *= 1.25; } },
+  shuck:        { name: "Shuck's Collar", icon: '⛓️', desc: '+8% critical chance', apply: function (s) { s.crit += 0.08; } },
+  worm:         { name: 'Lambton Scale', icon: '🐍', desc: 'Thorns: zombies that hit you take 25 damage', apply: function (s) { s.thorns += 25; } },
+  jack:         { name: 'Spring Heels', icon: '👢', desc: '-10% weapon cooldown', apply: function (s) { s.cooldown *= 0.9; } },
+  knight:       { name: 'Green Girdle', icon: '🟢', desc: '+1 armour, +0.3 HP/s regeneration', apply: function (s) { s.armor += 1; s.regen += 0.3; } },
+  annis:        { name: "Annis's Iron Claws", icon: '🦾', desc: '+15% damage', apply: function (s) { s.might += 0.15; } },
+  guyFawkes:    { name: 'Gunpowder Keg', icon: '🧨', desc: 'Kills have a 12% chance to explode, damaging nearby zombies', apply: function (s) { s.keg += 0.12; } },
+  pumpkinKing:  { name: 'Pumpkin Crown', icon: '👑', desc: '+25% coins', apply: function (s) { s.greed += 0.25; } },
+  krampus:      { name: "Krampus's Chains", icon: '🔗', desc: 'Every kill heals 0.4 HP', apply: function (s) { s.healOnKill += 0.4; } },
+  wickerRabbit: { name: "Lucky Rabbit's Foot", icon: '🐾', desc: '+30% luck', apply: function (s) { s.luck += 0.3; } }
+};
+ZN.RELIC_BASE_SLOTS = 3;
+ZN.RELIC_MAX_SLOTS = 8;
+ZN.relicSlots = function (ng) { return Math.min(ZN.RELIC_MAX_SLOTS, ZN.RELIC_BASE_SLOTS + (ng || 0)); };
+
+// ---------------------------------------------------------------------------
+// New Game+ ("The Second Rising"): replay the liberated map against a stronger horde
+// ---------------------------------------------------------------------------
+ZN.NG = {
+  hp: 0.5,        // +50% zombie HP per cycle
+  dmg: 0.25,      // +25% zombie damage per cycle
+  tier: 8,        // +8 effective tier per cycle (more enemy types, bigger bosses)
+  waves: 3,       // +3 starting waves per cycle
+  reward: 0.5     // +50% coins and survivor XP per cycle
+};
+
+ZN.ACHIEVEMENTS.push(
+  { id: 'relics', icon: '🏺', name: 'Relic Hunter', desc: 'Collect {n} boss relics.', value: function (x) { return Object.keys(x.save.relics || {}).length; },
+    tiers: [[3, { coins: 300 }], [8, { coins: 1000 }], [14, { coins: 2500 }], [18, { coins: 6000 }]] },
+  { id: 'rising', icon: '♾️', name: 'The Second Rising', desc: 'Start New Game+ {n} time(s).', value: function (x) { return x.save.ngPlus || 0; },
+    tiers: [[1, { coins: 5000 }], [3, { coins: 15000 }], [5, { coins: 40000 }]] }
+);

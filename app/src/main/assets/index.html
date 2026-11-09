@@ -20,11 +20,13 @@
       <div class="menu">
         <button class="btn big season-btn hidden" id="season-btn" data-go="event"></button>
         <div id="season-next" class="season-next"></div>
-        <button class="btn big primary" data-go="map">Campaign</button>
+        <button class="btn big ngplus-btn hidden" id="ngplus-btn">♾️ Begin New Game+</button>
+        <button class="btn big primary" data-go="map">Campaign <span id="ng-badge" class="badge hidden"></span></button>
         <button class="btn big daily-btn" data-go="daily">📅 Daily Challenge <span id="daily-badge" class="badge hidden">NEW</span></button>
         <button class="btn big" data-go="survivors">Survivors</button>
         <button class="btn big" data-go="shop">Upgrades</button>
         <button class="btn big" data-go="armoury">Armoury</button>
+        <button class="btn big" data-go="relics">Relics <span id="relic-count" class="muted-count"></span></button>
         <button class="btn big" data-go="achievements">Achievements <span id="ach-count" class="muted-count"></span></button>
         <button class="btn big" data-go="help">How to Play</button>
       </div>
@@ -94,6 +96,16 @@
     <div class="scroll-list" id="event-body"></div>
   </section>
 
+  <!-- Relics -->
+  <section id="screen-relics" class="screen">
+    <header class="topbar">
+      <button class="btn icon" data-go="title">‹</button>
+      <div class="screen-title">Boss Relics</div>
+      <div class="coins"><span id="relic-slots">0/3</span></div>
+    </header>
+    <div class="scroll-list" id="relic-list"></div>
+  </section>
+
   <!-- Achievements -->
   <section id="screen-achievements" class="screen">
     <header class="topbar">
@@ -142,6 +154,10 @@
       <p>Zombies sometimes drop glowing power-ups: Double Weapons, Double Speed, Invincible (trample everything!), Double XP and Deep Freeze. Elites always drop one. Walk over them to grab them before they fade.</p>
       <p>Companions can never be hurt, and each gives you a bonus: the Vampire Bat heals you with every bite, the Owl boosts XP, the Black Cat brings luck and the Hedgehog gives you thorns.</p>
       <p>Buy new survivors with coins: each starts with a different weapon and perks. Every region has its own horde boss, from Nessie in the Highlands to the Stonehenge Druid. Watch for red warning circles: get out before the slam lands!</p>
+      <h3>Boss relics</h3>
+      <p>Every horde boss drops a unique relic the first time you beat it. Equip relics on the Relics screen: you start with 3 slots and gain one for each New Game+ cycle.</p>
+      <h3>New Game+</h3>
+      <p>Liberate every county to unlock The Second Rising: the map resets and the horde returns stronger (more HP, damage, waves and earlier threats), but you keep everything you have earned, earn more coins and XP, and gain an extra relic slot each cycle.</p>
       <h3>Wave events</h3>
       <p>Part-way through each wave an objective appears: escort the ambulance to the hospital (it only moves while you stay close), grab supply crates before the looters, hold a zone while the horde surges, or chase down a golden Wanted zombie. Succeed for chests, coins, XP and power-ups.</p>
       <h3>Seasonal events</h3>

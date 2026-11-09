@@ -21,6 +21,7 @@
     if (name === 'achievements') renderAchievements();
     if (name === 'daily') renderDaily();
     if (name === 'event') renderEvent();
+    if (name === 'relics') renderRelics();
     if (name === 'title') { updateSoundButtons(); updateTitleBadges(); }
     if (name !== 'game') ZN.Music.play('menu');
   }
@@ -97,8 +98,39 @@
     });
   }
 
+  function renderRelics() {
+    var list = $('relic-list'), d = Save.data, slots = Save.relicSlots();
+    list.innerHTML = '';
+    $('relic-slots').textContent = d.relicEquip.length + '/' + slots + ' equipped';
+    list.appendChild(el('div', 'desc', '<span style="color:var(--muted);font-size:13px;padding:0 4px">Tap a relic to equip or unequip it. You have ' + slots +
+      ' slot' + (slots > 1 ? 's' : '') + (slots < ZN.RELIC_MAX_SLOTS ? ' (+1 per New Game+ cycle)' : '') + '.</span>'));
+    list.appendChild(el('div', 'section-h', 'Collection · ' + Object.keys(d.relics).length + '/' + Object.keys(ZN.RELICS).length));
+    Object.keys(ZN.RELICS).forEach(function (id) {
+      var r = ZN.RELICS[id], have = !!d.relics[id], eq = d.relicEquip.indexOf(id) >= 0, boss = ZN.BOSSES[id];
+      var row = el('div', 'item relic' + (eq ? ' equipped' : '') + (have ? '' : ' locked'));
+      row.appendChild(icon(have ? r.icon : '❔', eq ? '#ffd23a' : '#3a414c'));
+      var body = el('div', 'body');
+      body.appendChild(el('div', 'name', have ? r.name : '???'));
+      body.appendChild(el('div', 'desc', have ? r.desc : 'Defeat ' + boss.name + ' to claim this relic.'));
+      row.appendChild(body);
+      if (have) {
+        var b = el('button', 'btn buy' + (eq ? '' : ' primary'), eq ? 'Equipped' : 'Equip');
+        b.disabled = !eq && d.relicEquip.length >= slots;
+        b.onclick = function () { if (Save.toggleRelic(id)) { Save.save(); ZN.Audio.play('click'); renderRelics(); } };
+        row.appendChild(b);
+      }
+      list.appendChild(row);
+    });
+  }
+
   function updateTitleBadges() {
     updateSeasonBanner();
+    var d = Save.data;
+    $('relic-count').textContent = Object.keys(d.relics || {}).length + '/' + Object.keys(ZN.RELICS).length;
+    $('ngplus-btn').classList.toggle('hidden', !Save.canNewGamePlus());
+    $('ngplus-btn').textContent = '♾️ Begin New Game+ ' + ((d.ngPlus || 0) + 1);
+    $('ng-badge').classList.toggle('hidden', !d.ngPlus);
+    $('ng-badge').textContent = 'NG+' + d.ngPlus;
     var dl = Save.daily();
     $('daily-badge').classList.toggle('hidden', dl.done);
     var tc = Save.tierCounts();
@@ -190,7 +222,7 @@
       badges[c.id].textContent = th ? '⚠ ' + d.threats[c.id] : '';
     });
     $('map-coins').textContent = fmt(d.coins);
-    $('map-level').textContent = 'Survivor Level ' + d.accLevel;
+    $('map-level').innerHTML = 'Survivor Level ' + d.accLevel + (d.ngPlus ? '<span class="ng-tag">NG+' + d.ngPlus + '</span>' : '');
     $('map-progress').textContent = Save.clearedCount() + ' / ' + M.counties.length + ' liberated';
     $('map-xpbar').style.width = Math.min(100, d.accXp / ZN.accountXpFor(d.accLevel) * 100) + '%';
     var focus = selected || d.lastCounty;
@@ -480,13 +512,13 @@
     var c = ZN.MAP.byId[id], cleared = Save.isCleared(id), waves = Save.wavesFor(id), defend = !daily && Save.isThreatened(id);
     var tier = defend ? Save.clearedCount() : cleared ? waves - 1 : Save.clearedCount();
     if (daily) { waves = ZN.DAILY_WAVES; tier = Math.max(3, Save.clearedCount()); cleared = true; }
-    else Save.data.lastCounty = id;
+    else { tier += Save.ngTierBonus(); Save.data.lastCounty = id; }
     show('game');
     $('hud-boss').classList.add('hidden');
     updateBuffs.sig = null; $('hud-buffs').innerHTML = '';
     game = new ZN.Game($('game-canvas'), {
       county: c, waves: waves, tier: tier, replay: cleared, defend: defend, character: Save.data.character,
-      pet: Save.data.pet, daily: !!daily, mods: daily ? daily.mods : [],
+      pet: Save.data.pet, daily: !!daily, mods: daily ? daily.mods : [], ng: daily ? 0 : (Save.data.ngPlus || 0),
       onHud: updateHud, onBanner: showBanner, onBuff: function (g) { updateBuffs.sig = null; updateBuffs(g); },
       onLevelUp: showLevelUp, onChest: showChest, onEnd: endMission
     });
@@ -657,15 +689,18 @@
       var today = Save.todayKey();
       if (!(d.daily.date === today && d.daily.won)) { dailyBonus = ZN.DAILY_REWARD; d.daily = { date: today, won: true }; d.stats.dailies++; }
     }
-    var coins = Math.round(r.coins) + bonus + dailyBonus;
-    var accXp = r.xp + 30 * r.wavesDone + (firstClear ? 50 * g.waves : 0);
+    var ngMul = isDaily ? 1 : 1 + ZN.NG.reward * (d.ngPlus || 0);
+    bonus = Math.round(bonus * ngMul);
+    var coins = Math.round(r.coins * ngMul) + bonus + dailyBonus;
+    var accXp = Math.round((r.xp + 30 * r.wavesDone + (firstClear ? 50 * g.waves : 0)) * (isDaily ? 1 : 1 + ZN.NG.reward * (Save.data.ngPlus || 0)));
     d.coins += coins;
     d.stats.kills += r.kills; d.stats.runs++;
     if (r.win) d.stats.wins++;
     d.stats.bestLevel = Math.max(d.stats.bestLevel, r.level);
     if (firstClear) d.cleared[county.id] = g.waves;
     r.evolved.forEach(function (id) { d.stats.evolved[id] = true; });
-    if (r.win) { d.stats.bosses[r.bossKey] = true; d.stats.bossKills++; }
+    var newRelic = null;
+    if (r.win) { d.stats.bosses[r.bossKey] = true; d.stats.bossKills++; newRelic = Save.grantRelic(r.bossKey); }
     d.stats.timePlayed += r.time; d.stats.coinsEarned += coins; d.stats.buffs += r.buffs || 0;
     d.stats.eventsDone = (d.stats.eventsDone || 0) + (r.eventsDone || 0);
     if (r.season && r.tokens) { d.tokens = d.tokens || {}; d.tokens[r.season] = (d.tokens[r.season] || 0) + r.tokens; d.stats.tokens = (d.stats.tokens || 0) + r.tokens; }
@@ -701,6 +736,12 @@
       var newly = county.adj.filter(function (n) { return !Save.isCleared(n); }).map(function (n) { return ZN.MAP.byId[n].short; });
       if (newly.length) html += '<div class="unlock">🗺️ New fronts open: ' + newly.join(', ') + '</div>';
     }
+    if (newRelic) {
+      var rl = ZN.RELICS[newRelic];
+      html += '<div class="unlock">🏺 <b>Relic found: ' + rl.icon + ' ' + rl.name + '</b><br>' + rl.desc + (d.relicEquip.indexOf(newRelic) >= 0 ? ' · Equipped' : ' · Equip it on the Relics screen') + '</div>';
+      toast('🏺 ' + rl.name);
+    }
+    if (ngMul > 1) html += '<div class="unlock">♾️ New Game+ ' + d.ngPlus + ' bonus: ×' + ngMul.toFixed(1) + ' coins and XP</div>';
     if (threats.defended) html += '<div class="unlock">🛡️ <b>' + county.name + ' held!</b> The counter-attack is broken.</div>';
     threats.fallen.forEach(function (id) { html += '<div class="warn-box">💀 <b>' + ZN.MAP.byId[id].name + ' has fallen</b> back to the horde.</div>'; });
     if (threats.newThreat) html += '<div class="warn-box">⚠️ <b>Counter-attack on ' + ZN.MAP.byId[threats.newThreat].name + '!</b> Defend it within ' + ZN.THREAT_MISSIONS + ' missions or it falls.</div>';
@@ -784,6 +825,17 @@
     var toggleMusic = function () { Save.data.music = Save.data.music === false; Save.save(); updateSoundButtons(); ZN.Music.refresh(); };
     $('btn-music').onclick = toggleMusic; $('pause-music').onclick = toggleMusic;
     $('btn-backup').onclick = openBackup;
+    $('ngplus-btn').onclick = function () {
+      var n = (Save.data.ngPlus || 0) + 1;
+      confirmBox('Begin New Game+ ' + n + '?', 'The whole map resets to overrun and the horde returns much stronger (+' + Math.round(ZN.NG.hp * n * 100) + '% HP, +' +
+        Math.round(ZN.NG.dmg * n * 100) + '% damage, more waves, earlier threats). You keep coins, upgrades, mastery, survivors, pets, relics and achievements, earn ×' +
+        (1 + ZN.NG.reward * n).toFixed(1) + ' coins and XP, and gain a relic slot.', function () {
+        Save.startNewGamePlus(); Save.checkAchievements(); Save.save();
+        selected = null; renderMap.scrolled = false;
+        toast('♾️ The Second Rising begins: New Game+ ' + n);
+        show('map');
+      });
+    };
     $('backup-close').onclick = function () { overlay('ov-backup', false); };
     $('backup-copy').onclick = function () { $('backup-msg').textContent = copyText($('backup-out').value) ? 'Copied to clipboard.' : 'Select the code and copy it manually.'; };
     $('backup-share').onclick = function () {

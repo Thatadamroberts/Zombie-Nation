@@ -219,3 +219,9 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .event-hero { text-align: center; padding: 18px 14px; border-radius: 16px; margin-bottom: 12px; border: 2px solid; }
 .event-hero .big { font-size: 56px; }
 .event-hero h2 { margin: 6px 0; font-size: 24px; }
+
+.ngplus-btn { background: linear-gradient(180deg, #8a6a10, #4a3a08); border-color: #ffd23a; color: #fff6c0; }
+.item.relic.equipped { border-color: #ffd23a; box-shadow: 0 0 12px rgba(255,210,58,0.3); }
+.item.relic.locked .ico { filter: grayscale(1); opacity: 0.4; }
+.ng-tag { color: #ffd23a; font-weight: 900; margin-left: 6px; }
+#ov-confirm { background: rgba(5,6,8,0.94); }
