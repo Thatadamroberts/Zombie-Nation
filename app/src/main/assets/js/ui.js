@@ -10,7 +10,7 @@
 
   function show(name) {
     if (name === 'back') name = prevScreen;
-    if (name !== current && current !== 'game') prevScreen = current;
+    if (name !== current && current !== 'game' && name !== 'skills' && current !== 'skills') prevScreen = current;
     document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('active'); });
     $('screen-' + name).classList.add('active');
     current = name;
@@ -22,6 +22,7 @@
     if (name === 'daily') renderDaily();
     if (name === 'event') renderEvent();
     if (name === 'relics') renderRelics();
+    if (name === 'skills') renderSkills();
     if (name === 'title') { updateSoundButtons(); updateTitleBadges(); }
     if (name !== 'game') ZN.Music.play('menu');
   }
@@ -298,6 +299,52 @@
     });
   }
 
+  // ------------------------------------------------------- skill trees
+  var skillChar = 'tommy';
+  function tierRanks(ranks, tree, tier) { var n = 0; tree.forEach(function (pk) { if (pk.tier === tier) n += ranks[pk.id] || 0; }); return n; }
+  function renderSkills() {
+    var d = Save.data, ch = ZN.characterById(skillChar), tree = ZN.SKILLS[ch.id], body = $('skills-body');
+    d.skills = d.skills || {};
+    var ranks = d.skills[ch.id] = d.skills[ch.id] || {};
+    $('skills-title').textContent = ch.icon + ' ' + ch.name;
+    $('skills-coins').textContent = fmt(d.coins);
+    body.innerHTML = '';
+    body.appendChild(el('div', 'desc', '<span style="color:var(--muted);font-size:13px;padding:0 4px">' + ch.title + ' · perks apply only while playing ' + ch.name + '.</span>'));
+    [1, 2, 3].forEach(function (tier) {
+      var open = tier === 1 || tierRanks(ranks, tree, tier - 1) >= ZN.SKILL_UNLOCK;
+      var box = el('div', 'tier-box' + (open ? '' : ' locked') + (tier === 3 ? ' cap' : ''));
+      var need = tier === 1 ? '' : open ? 'Unlocked' : 'Needs ' + ZN.SKILL_UNLOCK + ' ranks in Tier ' + (tier === 2 ? 'I' : 'II') + ' (' + tierRanks(ranks, tree, tier - 1) + '/' + ZN.SKILL_UNLOCK + ')';
+      box.appendChild(el('div', 'tier-h', '<span>' + (tier === 3 ? '★ Capstone' : 'Tier ' + (tier === 1 ? 'I' : 'II')) + '</span><span>' + need + '</span>'));
+      tree.filter(function (pk) { return pk.tier === tier; }).forEach(function (pk) {
+        var r = ranks[pk.id] || 0, row = el('div', 'perk');
+        row.appendChild(el('div', 'pi', pk.icon));
+        var pb = el('div', 'pb');
+        pb.appendChild(el('div', 'pn', pk.name));
+        pb.appendChild(el('div', 'pd', pk.desc));
+        if (pk.max > 1) { var pips = el('div', 'pips'); for (var i = 0; i < pk.max; i++) pips.appendChild(el('div', 'pip' + (i < r ? ' on' : ''))); pb.appendChild(pips); }
+        row.appendChild(pb);
+        var b;
+        if (r >= pk.max) b = el('button', 'btn buy', pk.max > 1 ? 'MAX' : 'OWNED');
+        else {
+          var cost = ZN.skillCost(tier, r);
+          b = el('button', 'btn buy primary', '💰 ' + fmt(cost));
+          b.disabled = !open || d.coins < cost;
+          b.onclick = function () {
+            if (!open || d.coins < cost) return;
+            d.coins -= cost; ranks[pk.id] = r + 1; Save.save();
+            ZN.Audio.play(tier === 3 ? 'evolve' : 'levelup');
+            toast(pk.icon + ' ' + pk.name + (pk.max > 1 ? ' rank ' + (r + 1) : ' unlocked!'));
+            var got = Save.checkAchievements(); if (got.length) { Save.save(); got.forEach(function (e) { toast('🏆 ' + Save.tierLabel(e.a, e.tier)); }); }
+            renderSkills();
+          };
+        }
+        row.appendChild(b);
+        box.appendChild(row);
+      });
+      body.appendChild(box);
+    });
+  }
+
   // -------------------------------------------------------- survivors
   function renderSurvivors() {
     var list = $('survivor-list'), d = Save.data;
@@ -311,6 +358,13 @@
       var body = el('div', 'body');
       body.appendChild(el('div', 'name', ch.name + ' <span style="color:var(--muted);font-weight:600">· ' + ch.title + '</span>'));
       body.appendChild(el('div', 'desc', 'Starts with ' + w.icon + ' <b>' + w.name + '</b>. ' + ch.perks));
+      if (owned && ZN.SKILLS[ch.id]) {
+        var ranks = (d.skills || {})[ch.id] || {}, spent = 0, total = 0;
+        ZN.SKILLS[ch.id].forEach(function (pk) { spent += ranks[pk.id] || 0; total += pk.max; });
+        var sb = el('button', 'btn small skill-btn', '🌳 Skill tree ' + spent + '/' + total + (ranks.cap ? ' ★' : ''));
+        sb.onclick = function () { skillChar = ch.id; ZN.Audio.play('click'); show('skills'); };
+        body.appendChild(sb);
+      }
       row.appendChild(body);
       var b;
       if (sel) b = el('button', 'btn buy', 'Chosen');
@@ -793,6 +847,7 @@
     }
     if (current === 'title') return false;
     if (current === 'map' && selected) { paths[selected].classList.remove('selected'); selected = null; $('county-panel').classList.add('hidden'); return true; }
+    if (current === 'skills') { show('survivors'); return true; }
     show(current === 'shop' || current === 'armoury' || current === 'survivors' ? prevScreen : 'title');
     return true;
   };

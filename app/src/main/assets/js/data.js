@@ -966,3 +966,68 @@ ZN.ACHIEVEMENTS.push(
   { id: 'rising', icon: '♾️', name: 'The Second Rising', desc: 'Start New Game+ {n} time(s).', value: function (x) { return x.save.ngPlus || 0; },
     tiers: [[1, { coins: 5000 }], [3, { coins: 15000 }], [5, { coins: 40000 }]] }
 );
+
+// ---------------------------------------------------------------------------
+// Survivor skill trees. Tier I: 2 perks x 3 ranks. Tier II opens after 3 ranks in Tier I,
+// the capstone after 3 ranks in Tier II. Perks only apply while playing that survivor.
+// ---------------------------------------------------------------------------
+function perk(id, tier, name, icon, desc, apply, max) { return { id: id, tier: tier, name: name, icon: icon, desc: desc, apply: apply, max: max || 3 }; }
+ZN.SKILLS = {
+  tommy: [
+    perk('aim', 1, 'Steady Aim', '🎯', '+5% crit chance per rank', function (s, r) { s.crit += 0.05 * r; }),
+    perk('rations', 1, 'Field Rations', '🥫', '+10% max HP per rank', function (s, r) { s.maxHp *= 1 + 0.1 * r; }),
+    perk('draw', 2, 'Quick Draw', '⚡', '-5% cooldown per rank', function (s, r) { s.cooldown *= 1 - 0.05 * r; }),
+    perk('scav', 2, 'Scavenger', '🎒', '+10% coins and XP per rank', function (s, r) { s.greed += 0.1 * r; s.growth += 0.1 * r; }),
+    perk('cap', 3, 'Last Man Standing', '🔥', 'Below 30% HP you deal +50% damage and move 30% faster', function (s) { s.lastStand = true; }, 1)
+  ],
+  beefeater: [
+    perk('guard', 1, 'Iron Guard', '🛡️', '+1 armour per rank', function (s, r) { s.armor += r; }),
+    perk('reach', 1, 'Long Reach', '🔱', '+8% area per rank', function (s, r) { s.area *= 1 + 0.08 * r; }),
+    perk('might', 2, 'Royal Might', '👑', '+6% damage per rank', function (s, r) { s.might += 0.06 * r; }),
+    perk('stand', 2, 'Unyielding', '🧱', '+0.2 HP/s regen per rank', function (s, r) { s.regen += 0.2 * r; }),
+    perk('cap', 3, 'Tower Guard', '🏰', '15% chance to block hits; zombies that hit you take 30 damage', function (s) { s.block += 0.15; s.thorns += 30; }, 1)
+  ],
+  shepherd: [
+    perk('fleet', 1, 'Fleet Foot', '👟', '+5% move speed per rank', function (s, r) { s.speed *= 1 + 0.05 * r; }),
+    perk('herd', 1, 'Herding', '🐑', '+20% pickup range per rank', function (s, r) { s.magnet *= 1 + 0.2 * r; }),
+    perk('wild', 2, 'Wildfire', '🔥', '+15% effect duration per rank', function (s, r) { s.duration *= 1 + 0.15 * r; }),
+    perk('fire', 2, 'Firestarter', '🧯', '+6% damage per rank', function (s, r) { s.might += 0.06 * r; }),
+    perk('cap', 3, 'Ring of Fire', '💫', 'Every 9 seconds a ring of flames erupts around you', function (s) { s.fireRing = true; }, 1)
+  ],
+  bouncer: [
+    perk('skin', 1, 'Thick Skin', '💪', '+15% max HP per rank', function (s, r) { s.maxHp *= 1 + 0.15 * r; }),
+    perk('presence', 1, 'Big Presence', '⭕', '+8% area per rank', function (s, r) { s.area *= 1 + 0.08 * r; }),
+    perk('heid', 2, 'Heidbutt', '🤕', '+6% damage per rank', function (s, r) { s.might += 0.06 * r; }),
+    perk('gut', 2, 'Iron Gut', '🍺', '+0.3 HP/s regen per rank', function (s, r) { s.regen += 0.3 * r; }),
+    perk('cap', 3, 'Last Orders', '🔔', 'When hit, 25% chance to unleash a shockwave that hurls zombies away', function (s) { s.shockwave = true; }, 1)
+  ],
+  fisherman: [
+    perk('legs', 1, 'Sea Legs', '🌊', '+5% move speed per rank', function (s, r) { s.speed *= 1 + 0.05 * r; }),
+    perk('catch', 1, 'Catch of the Day', '🐟', '+10% luck per rank', function (s, r) { s.luck += 0.1 * r; }),
+    perk('pockets', 2, 'Deep Pockets', '💰', '+10% coins per rank', function (s, r) { s.greed += 0.1 * r; }),
+    perk('barbs', 2, 'Barbed Hooks', '🪝', '+6% damage per rank', function (s, r) { s.might += 0.06 * r; }),
+    perk('cap', 3, 'Treasure Diver', '🧜', 'Treasure chests give an extra upgrade; +25% coins', function (s) { s.treasureDiver = true; s.greed += 0.25; }, 1)
+  ],
+  piper: [
+    perk('lungs', 1, 'Lungpower', '🎶', '+10% area per rank', function (s, r) { s.area *= 1 + 0.1 * r; }),
+    perk('rhythm', 1, 'Rhythm', '🥁', '-4% cooldown per rank', function (s, r) { s.cooldown *= 1 - 0.04 * r; }),
+    perk('endure', 2, 'Endurance', '⏳', '+12% effect duration per rank', function (s, r) { s.duration *= 1 + 0.12 * r; }),
+    perk('clan', 2, 'Clan Spirit', '🏴', '+6% damage per rank', function (s, r) { s.might += 0.06 * r; }),
+    perk('cap', 3, 'Battle Lament', '😱', 'Every 12 seconds, every zombie on screen is stunned for 1.5 s', function (s) { s.lament = true; }, 1)
+  ],
+  nana: [
+    perk('needles', 1, 'Knitting Needles', '🧶', '+5% crit chance per rank', function (s, r) { s.crit += 0.05 * r; }),
+    perk('char', 1, 'Cup of Char', '🫖', '+0.2 HP/s regen per rank', function (s, r) { s.regen += 0.2 * r; }),
+    perk('wisdom', 2, 'Wisdom', '📚', '+10% XP per rank', function (s, r) { s.growth += 0.1 * r; }),
+    perk('blitz', 2, 'Blitz Spirit', '✈️', '+6% damage per rank', function (s, r) { s.might += 0.06 * r; }),
+    perk('cap', 3, 'Keep Calm and Carry On', '☕', '+1 revive; reviving makes you invincible for 5 seconds', function (s) { s.revival += 1; s.keepCalm = true; }, 1)
+  ]
+};
+ZN.SKILL_UNLOCK = 3; // ranks needed in the previous tier
+ZN.skillCost = function (tier, rank) { return tier === 3 ? 15000 : (tier === 1 ? 500 : 1500) * Math.pow(2, rank); };
+
+ZN.ACHIEVEMENTS.push(
+  { id: 'trained', icon: '🌳', name: 'Fully Trained', desc: 'Unlock {n} survivor capstone(s).', value: function (x) {
+      var n = 0, sk = x.save.skills || {}; for (var c in sk) if (sk[c] && sk[c].cap) n++; return n; },
+    tiers: [[1, { coins: 2000 }], [4, { coins: 8000 }], [7, { coins: 20000 }]] }
+);

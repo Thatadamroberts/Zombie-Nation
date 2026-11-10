@@ -79,7 +79,11 @@
     s.area *= 1 + 0.05 * r('area'); s.duration *= 1 + 0.1 * r('duration'); s.amount += r('amount');
     s.magnet *= 1 + 0.25 * r('magnet'); s.luck += 0.1 * r('luck'); s.growth += 0.05 * r('growth');
     s.greed += 0.1 * r('greed'); s.revival = r('revival');
-    if (this.char) this.char.apply(s);
+    if (this.char) {
+      this.char.apply(s);
+      var tree = ZN.SKILLS[this.char.id], ranks = (ZN.Save.data.skills || {})[this.char.id] || {};
+      if (tree) tree.forEach(function (pk) { if (ranks[pk.id]) pk.apply(s, ranks[pk.id]); });
+    }
     if (this.petDef) this.petDef.apply(s);
     (ZN.Save.data.relicEquip || []).forEach(function (id) { if (ZN.RELICS[id]) ZN.RELICS[id].apply(s); });
     if (this.buffs && this.buffs.doubleWeapons > 0) s.cooldown *= 0.5;
@@ -204,7 +208,7 @@
       var d = ZN.WEAPONS[ev.into];
       rewards.push({ icon: d.icon, color: d.color, title: d.name, desc: 'EVOLVED! ' + d.levels[0] });
     } else {
-      var count = Math.random() < 0.15 * this.stat.luck ? 3 : 1;
+      var count = (Math.random() < 0.15 * this.stat.luck ? 3 : 1) + (this.stat.treasureDiver ? 1 : 0);
       for (var i = 0; i < count; i++) {
         var opts = this.rollOptions().filter(function (o) { return o.kind === 'upWeapon' || o.kind === 'upPassive'; });
         if (!opts.length) break;
@@ -702,6 +706,7 @@
     var dmg = base * this.stat.might, crit = Math.random() < this.stat.crit + (opts.crit || 0);
     if (crit) dmg *= opts.critMul || 2;
     if (this.waveMods.shielded && (e.type === 'brute' || e.def.mini || e.def.elite)) dmg *= 0.75;
+    if (this.stat.lastStand && this.player.hp < this.stat.maxHp * 0.3) dmg *= 1.5;
     e.hp -= dmg; e.flash = 0.08;
     if (opts.kb) {
       var kx = opts.kx, ky = opts.ky;
@@ -785,11 +790,18 @@
     dmg = Math.max(1, dmg - this.stat.armor);
     this.damageTaken += dmg;
     p.hp -= dmg; p.hurtT = 0.2;
+    if (this.stat.shockwave && Math.random() < 0.25 && p.hp > 0) {
+      var gs = this;
+      this.queryEnemies(p.x, p.y, 130, function (e) { gs.damage(e, 40, { kb: 220, kx: e.x - p.x, ky: e.y - p.y, silent: true }); });
+      this.effects.push({ kind: 'ring', x: p.x, y: p.y, r: 10, maxR: 130, t: 0, T: 0.35, color: '#ffd23a' });
+      this.shake = Math.max(this.shake, 6);
+    }
     this.juice(3.5, 22);
     ZN.Audio.play('hurt', 150);
     if (p.hp <= 0) {
       if (this.revivals > 0) {
         this.revivals--; p.hp = this.stat.maxHp * 0.5; p.iframes = 2.5;
+        if (this.stat.keepCalm) { this.buffs.invincible = 5; this.computeStats(); this.banner('', '☕ Keep Calm and Carry On!'); }
         var g = this;
         this.queryEnemies(p.x, p.y, 220, function (e) { g.damage(e, 40, { kb: 140, silent: true }); });
         this.effects.push({ kind: 'ring', x: p.x, y: p.y, r: 10, maxR: 240, t: 0, T: 0.7, color: '#ffffff' });
@@ -853,13 +865,36 @@
     var il = Math.sqrt(this.input.x * this.input.x + this.input.y * this.input.y);
     p.moving = il > 0.05;
     if (p.moving) {
-      var bogF = this.inBog(p.x, p.y) ? 0.55 : 1;
+      var bogF = (this.inBog(p.x, p.y) ? 0.55 : 1) * (st.lastStand && p.hp < st.maxHp * 0.3 ? 1.3 : 1);
       p.x += this.input.x * st.speed * bogF * dt; p.y += this.input.y * st.speed * bogF * dt;
       this.pushOut(p, p.r - 2);
       p.fx = this.input.x / il; p.fy = this.input.y / il; p.walk += dt * 10;
     }
     p.hp = Math.min(st.maxHp, p.hp + st.regen * dt);
     this.buffCd -= dt;
+    if (st.fireRing && !this.victory) {
+      this.fireRingT = (this.fireRingT === undefined ? 4 : this.fireRingT) - dt;
+      if (this.fireRingT <= 0) {
+        this.fireRingT = 9 * st.cooldown;
+        for (var fr = 0; fr < 8; fr++) {
+          var fa = fr / 8 * TAU;
+          this.pools.push({ x: p.x + Math.cos(fa) * 70, y: p.y + Math.sin(fa) * 70, r: 38 * st.area, life: 3 * st.duration, tick: 0.35, tickT: 0, dmg: 10, burn: 5, color: '#ff6a00' });
+        }
+        this.effects.push({ kind: 'ring', x: p.x, y: p.y, r: 10, maxR: 90, t: 0, T: 0.4, color: '#ff6a00' });
+        ZN.Audio.play('boom', 200);
+      }
+    }
+    if (st.lament && !this.victory) {
+      this.lamentT = (this.lamentT === undefined ? 6 : this.lamentT) - dt;
+      if (this.lamentT <= 0) {
+        this.lamentT = 12;
+        var hw = this.viewW / 2, hh = this.viewH / 2;
+        this.enemies.forEach(function (e) { if (!e.def.boss && Math.abs(e.x - p.x) < hw && Math.abs(e.y - p.y) < hh) e.freezeT = Math.max(e.freezeT, 1.5); });
+        this.effects.push({ kind: 'ring', x: p.x, y: p.y, r: 10, maxR: 260, t: 0, T: 0.6, color: '#d8b8ff' });
+        this.banner('', '😱 Battle Lament!');
+        ZN.Audio.play('zap', 200);
+      }
+    }
     var changed = false;
     for (var bk in this.buffs) {
       if (this.buffs[bk] <= 0) continue;
