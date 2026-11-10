@@ -129,7 +129,8 @@
     ]
   };
   var SHAPE = { shambler: ['shambler', 'walk'], runner: ['runner', 'run'], crawler: ['crawler', 'crawl'], brute: ['brute', 'brute'],
-    elite: ['brute', 'brute'], mini: ['brute', 'brute'], spitter: ['spitter', 'walk'], bloater: ['bloater', 'stubby'] };
+    elite: ['brute', 'brute'], mini: ['brute', 'brute'], spitter: ['spitter', 'walk'], bloater: ['bloater', 'stubby'],
+    trader: ['shambler', 'walk'], berserker: ['runner', 'run'], miner: ['shambler', 'walk'], hardhat: ['brute', 'brute'], morris: ['runner', 'run'], bogbody: ['brute', 'brute'] };
 
   // Hat overlays for the player sprite: row -> pattern ('.' keeps the base pixel)
   var HATS = {

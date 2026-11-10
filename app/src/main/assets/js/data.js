@@ -1031,3 +1031,33 @@ ZN.ACHIEVEMENTS.push(
       var n = 0, sk = x.save.skills || {}; for (var c in sk) if (sk[c] && sk[c].cap) n++; return n; },
     tiers: [[1, { coins: 2000 }], [4, { coins: 8000 }], [7, { coins: 20000 }]] }
 );
+
+// ---------------------------------------------------------------------------
+// Regional zombie types: every region has its own local horde
+// ---------------------------------------------------------------------------
+ZN.ENEMIES.trader    = { name: 'Market Trader', hp: 16, speed: 38, dmg: 7, r: 12, xp: 2, color: '#3a5a8a', skin: '#a8c890', behavior: 'lobber', regional: true };
+ZN.ENEMIES.berserker = { name: 'Highland Berserker', hp: 22, speed: 58, dmg: 10, r: 12, xp: 2, color: '#2a5a3a', skin: '#9ab07a', behavior: 'berserk', regional: true };
+ZN.ENEMIES.miner     = { name: 'Pit Miner', hp: 20, speed: 42, dmg: 9, r: 12, xp: 2, color: '#3a3a40', skin: '#8a9a7a', behavior: 'burrow', regional: true };
+ZN.ENEMIES.ram       = { name: 'Zombie Ram', hp: 26, speed: 46, dmg: 12, r: 13, xp: 2, color: '#e8e2d0', skin: '#6a6a5a', behavior: 'ram', shape: 'ram', regional: true };
+ZN.ENEMIES.seagull   = { name: 'Seagull', hp: 6, speed: 110, dmg: 4, r: 8, xp: 1, color: '#e8e8e8', skin: '#a0a8b0', behavior: 'swoop', flyer: true, regional: true };
+ZN.ENEMIES.bogbody   = { name: 'Bog Body', hp: 55, speed: 28, dmg: 11, r: 17, xp: 3, color: '#5a3e22', skin: '#8a6a3a', behavior: 'mud', regional: true };
+ZN.ENEMIES.hardhat   = { name: 'Hard Hat Worker', hp: 34, speed: 34, dmg: 10, r: 16, xp: 3, color: '#ff8a1a', skin: '#8fbf72', behavior: 'tank', armorPct: 0.4, regional: true };
+ZN.ENEMIES.morris    = { name: 'Morris Dancer', hp: 14, speed: 64, dmg: 7, r: 11, xp: 2, color: '#f0f0f0', skin: '#a8c890', behavior: 'orbit', regional: true };
+ZN.ENEMIES.banshee   = { name: 'Banshee', hp: 18, speed: 40, dmg: 8, r: 12, xp: 3, color: '#c8d8e8', skin: '#e8f0f8', behavior: 'wail', shape: 'banshee', flyer: true, regional: true };
+ZN.REGIONAL = { city: 'trader', scot: 'berserker', high: 'berserker', north: 'miner', wales: 'ram', sw: 'seagull', east: 'bogbody', mid: 'hardhat', se: 'morris', ni: 'banshee' };
+ZN.REGIONAL_DESC = {
+  trader: 'Lobs rotten fruit from a distance. Watch for the landing marker.',
+  berserker: 'Kilted and woad-painted; flies into a frenzy when wounded.',
+  miner: 'Tunnels underground and bursts up right beside you.',
+  ram: 'Lowers its horns and charges in a straight line.',
+  seagull: 'Arrives in squawking flocks that swoop erratically.',
+  bogbody: 'Slow and tough; its grip leaves you mired in peat.',
+  hardhat: 'Safety first: takes 40% less damage.',
+  morris: 'Dances rings around you in a troupe before closing in.',
+  banshee: 'Its wail slows and hurts anyone too close.'
+};
+
+ZN.ACHIEVEMENTS.push(
+  { id: 'locals', icon: '🗺️', name: 'Local Knowledge', desc: 'Slay {n} different regional zombie types.', value: function (x) { return Object.keys(x.stats.regional || {}).length; },
+    tiers: [[3, { coins: 500 }], [6, { coins: 1500 }], [9, { coins: 4000 }]] }
+);

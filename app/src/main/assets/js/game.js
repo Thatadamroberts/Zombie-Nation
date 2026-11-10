@@ -35,6 +35,7 @@
     this.input = { x: 0, y: 0 }; this.keys = {}; this.joy = null;
     this.char = ZN.characterById(opts.character);
     this.bossKey = ZN.bossFor(opts.county);
+    this.regional = ZN.REGIONAL[opts.county.region] || null;
     this.ng = opts.daily ? 0 : (opts.ng || 0);
     this.season = ZN.currentSeason();
     this.runTokens = 0; this.eventsDone = 0; this.wevent = null; this.eventWave = -1;
@@ -315,6 +316,7 @@
 
   G.pickType = function () {
     var E = this.effLevel(), table = [['shambler', 10]], tr = this.trait;
+    if (this.regional) table.push([this.regional, (E === 0 ? 1.2 : 2.5) * (this.regional === 'seagull' ? 0.3 : 1)]);
     if (E >= 1) table.push(['runner', 4]);
     if (E >= 2 || tr === 'brutes') table.push(['brute', tr === 'brutes' ? 3 + E * 0.2 : 1.5 + E * 0.1]);
     if (E >= 3 || tr === 'spitters') table.push(['spitter', tr === 'spitters' ? 2 : 1.2]);
@@ -325,6 +327,13 @@
   };
 
   G.spawnEnemy = function (type, x, y, hpScale, defOverride) {
+    if (type === 'seagull' && !this.flocking && x === undefined) {
+      this.flocking = true;
+      var fa = Math.random() * TAU, fx = this.player.x + Math.cos(fa) * this.spawnR, fy = this.player.y + Math.sin(fa) * this.spawnR, lead;
+      for (var fi = 0; fi < 5; fi++) { var gl = this.spawnEnemy('seagull', fx + rand(-30, 30), fy + rand(-30, 30)); if (!fi) lead = gl; }
+      this.flocking = false;
+      return lead;
+    }
     var def = defOverride || ZN.ENEMIES[type];
     if (x === undefined) {
       var a = Math.random() * TAU;
@@ -466,6 +475,21 @@
     }
     if (added && this.opts.onBuff) this.opts.onBuff(this);
     return added;
+  };
+
+  // Market Trader: lobs fruit at where the player is heading
+  G.lobFruit = function (e) {
+    var p = this.player, g = this, tx = p.x + this.input.x * 40, ty = p.y + this.input.y * 40;
+    var fruit = ['🍅', '🍎', '🥔', '🥬'][(Math.random() * 4) | 0];
+    this.fruitInAir = (this.fruitInAir || 0) + 1;
+    this.effects.push({ kind: 'lob', sx: e.x, sy: e.y, tx: tx, ty: ty, t: 0, T: 0.9, icon: fruit });
+    this.effects.push({ kind: 'warn', x: tx, y: ty, r: 30, t: 0, T: 0.9 });
+    this.timers.push({ at: this.time + 0.9, fn: function () {
+      g.fruitInAir--;
+      var dx = g.player.x - tx, dy = g.player.y - ty;
+      if (dx * dx + dy * dy < 30 * 30) g.hurtPlayer(e.dmg * (g.tier < 2 ? 0.35 : 0.7));
+      g.emit(tx, ty, 6, '#c83a2a', 80, 0.4, 3);
+    } });
   };
 
   // ------------------------------------------------------------ wave events
@@ -707,6 +731,7 @@
     if (crit) dmg *= opts.critMul || 2;
     if (this.waveMods.shielded && (e.type === 'brute' || e.def.mini || e.def.elite)) dmg *= 0.75;
     if (this.stat.lastStand && this.player.hp < this.stat.maxHp * 0.3) dmg *= 1.5;
+    if (e.def.armorPct) dmg *= 1 - e.def.armorPct;
     e.hp -= dmg; e.flash = 0.08;
     if (opts.kb) {
       var kx = opts.kx, ky = opts.ky;
@@ -725,6 +750,7 @@
   G.kill = function (e) {
     if (e.dead) return;
     e.dead = true; this.kills++;
+    if (e.def.regional) { this.regionalKills = this.regionalKills || {}; this.regionalKills[e.type] = true; }
     var def = e.def;
     this.dropGem(e.x, e.y, def.xp * (1 + this.waveIdx * 0.08) * e.xpMul * (this.trait === 'night' ? 1.15 : 1) * (this.trait === 'brutes' && e.type === 'brute' ? 1.6 : 1));
     if (Math.random() < (this.trait === 'treasure' ? 0.09 : 0.035) * this.stat.luck || def.elite) this.pickups.push({ type: 'coin', x: e.x + rand(-8, 8), y: e.y + rand(-8, 8), v: def.elite ? 10 : (1 + (Math.random() * 3 | 0)) });
@@ -835,7 +861,7 @@
     this.opts.onEnd({ win: this.victory, kills: this.kills, coins: this.runCoins, xp: Math.round(this.runXp),
       level: this.player.level, time: this.time, wavesDone: this.victory ? this.waves : this.waveIdx,
       damageTaken: this.damageTaken, evolved: this.evolvedIds.slice(), bossKey: this.bossKey, buffs: this.buffsCollected || 0,
-      tokens: this.runTokens, eventsDone: this.eventsDone, season: this.season ? this.season.id : null });
+      tokens: this.runTokens, eventsDone: this.eventsDone, season: this.season ? this.season.id : null, regional: this.regionalKills || {} });
   };
 
   // ----------------------------------------------------------------- update
@@ -865,7 +891,7 @@
     var il = Math.sqrt(this.input.x * this.input.x + this.input.y * this.input.y);
     p.moving = il > 0.05;
     if (p.moving) {
-      var bogF = (this.inBog(p.x, p.y) ? 0.55 : 1) * (st.lastStand && p.hp < st.maxHp * 0.3 ? 1.3 : 1);
+      var bogF = (this.inBog(p.x, p.y) ? 0.55 : 1) * (st.lastStand && p.hp < st.maxHp * 0.3 ? 1.3 : 1) * (p.slowT > 0 ? 0.6 : 1);
       p.x += this.input.x * st.speed * bogF * dt; p.y += this.input.y * st.speed * bogF * dt;
       this.pushOut(p, p.r - 2);
       p.fx = this.input.x / il; p.fy = this.input.y / il; p.walk += dt * 10;
@@ -907,6 +933,7 @@
       if (this.dustT <= 0) { this.dustT = this.buffs.doubleSpeed > 0 ? 0.06 : 0.16; this.emit(p.x - p.fx * 6, p.y + 12, 2, 'rgba(200,190,160,0.6)', 25, 0.4, 2.5, -10); }
     }
     if (p.hurtT > 0) p.hurtT -= dt;
+    if (p.slowT > 0) p.slowT -= dt;
     if (p.iframes > 0) p.iframes -= dt;
 
     if (!this.victory) { this.waveTick(dt); this.spawnTick(dt); this.traitTick(dt); this.updateWaveEvent(dt); }
@@ -980,6 +1007,47 @@
       var mx = ux, my = uy;
       if (e.def.bounty) { if (d < 260) { mx = -ux; my = -uy; } else { mx = Math.cos(e.anim * 0.2); my = Math.sin(e.anim * 0.23); } }
       else if (e.looter && !e.looter.taken) { var lx = e.looter.x - e.x, ly = e.looter.y - e.y, ll = Math.sqrt(lx * lx + ly * ly) || 1; mx = lx / ll; my = ly / ll; }
+      var bh = e.def.behavior;
+      if (bh && e.freezeT <= 0) {
+        if (bh === 'lobber') {
+          if (d < 170) { mx = -ux; my = -uy; sp *= 0.7; } else if (d < 240) sp *= 0.1;
+          e.shootT -= dt;
+          if (e.shootT <= 0 && d < 300 && (this.fruitInAir || 0) < (this.tier < 2 ? 2 : 4)) { e.shootT = rand(5, 7); this.lobFruit(e); }
+        } else if (bh === 'berserk') {
+          if (!e.berserk && e.hp < e.maxHp * 0.5) { e.berserk = true; e.dmg *= 1.3; this.texts.length < 70 && this.texts.push({ x: e.x, y: e.y - e.r - 6, t: 0, v: 'RAAAH!', color: '#ff4a4a' }); }
+          if (e.berserk) sp *= 1.8;
+        } else if (bh === 'burrow') {
+          e.burrowT = (e.burrowT || 0) - dt;
+          if (!e.submerged && d > 170 && e.burrowT <= 0) { e.submerged = true; this.emit(e.x, e.y + 8, 4, '#5a4a3a', 60, 0.5, 3); }
+          if (e.submerged) {
+            sp *= 1.7;
+            if (d < 55) { e.submerged = false; e.burrowT = 4; this.emit(e.x, e.y + 8, 8, '#5a4a3a', 120, 0.5, 3); this.shake = Math.max(this.shake, 2); }
+          }
+        } else if (bh === 'ram') {
+          e.ramT = (e.ramT === undefined ? rand(1, 3) : e.ramT) - dt;
+          if (e.windT > 0) { e.windT -= dt; sp = 0; if (e.windT <= 0) e.chargeT = 0.6; }
+          else if (e.chargeT > 0) { e.chargeT -= dt; sp *= 4.5; mx = e.cdx; my = e.cdy; }
+          else if (e.ramT <= 0 && d < 240) { e.ramT = rand(3, 5); e.windT = 0.5; e.cdx = ux; e.cdy = uy; }
+        } else if (bh === 'swoop') {
+          var wa = Math.sin(e.anim * 0.7 + e.id) * 0.9, wc = Math.cos(wa), wsn = Math.sin(wa), wnx = mx * wc - my * wsn;
+          my = mx * wsn + my * wc; mx = wnx;
+        } else if (bh === 'orbit') {
+          e.life = (e.life || 0) + dt;
+          if (e.life < 5 && d > 60) { var ox = -uy * 0.85 + ux * 0.35, oy = ux * 0.85 + uy * 0.35, ol = Math.sqrt(ox * ox + oy * oy); mx = ox / ol; my = oy / ol; }
+        } else if (bh === 'wail') {
+          e.wailT = (e.wailT === undefined ? rand(2, 4) : e.wailT) - dt;
+          if (e.wailT <= 0 && d < 200 && !e.wailing) { e.wailT = rand(5, 7); e.wailing = 0.8; this.effects.push({ kind: 'warn', x: e.x, y: e.y, r: 150, t: 0, T: 0.8, follow: e }); }
+          if (e.wailing > 0) {
+            e.wailing -= dt; sp = 0;
+            if (e.wailing <= 0) {
+              e.wailing = 0;
+              this.effects.push({ kind: 'ring', x: e.x, y: e.y, r: 10, maxR: 150, t: 0, T: 0.4, color: '#c8d8e8' });
+              if (d < 150) { this.hurtPlayer(e.dmg * 0.8); p.slowT = 2; }
+              ZN.Audio.play('zap', 300);
+            }
+          }
+        }
+      }
       if (e.def.ranged) {
         if (d < 150) { mx = -ux; my = -uy; sp *= 0.6; } else if (d < 220) { sp *= 0.15; }
         e.shootT -= dt;
@@ -1021,6 +1089,7 @@
         e.atkT = e.def.boss || e.def.mini ? 1 : 0.7; e.lungeT = 0.22;
         if (invinc) { e.atkT = 0.35; g.damage(e, 30, { kb: 180, kx: -ux, ky: -uy, color: '#ffd23a' }); continue; }
         g.hurtPlayer(e.dmg);
+        if (e.def.behavior === 'mud') p.slowT = 1.5;
         if (g.stat.thorns > 0) g.damage(e, g.stat.thorns, { kb: 60, kx: -ux, ky: -uy, color: '#c8a070', silent: true });
       }
     }
@@ -1723,6 +1792,7 @@
       if (e.windT > 0) { ctx.strokeStyle = 'rgba(255,60,60,0.8)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.x + e.cdx * 260, e.y + e.cdy * 260); ctx.stroke(); }
       ZN.Sprites.enemy(ctx, e, this.time);
       if (def.accessory) ZN.drawAccessory(this, ctx, e);
+      else if (def.regional) ZN.drawRegionalFlair(this, ctx, e);
       else if (this.season && !def.elite && e.spawnT <= 0) ZN.drawSeasonHat(this, ctx, e, this.season);
       if (e.freezeT > 0 || this.buffs.freeze > 0) { ctx.fillStyle = 'rgba(160,220,255,0.45)'; ctx.beginPath(); ctx.arc(e.x, e.y, r + 3, 0, TAU); ctx.fill(); }
       else if (e.slowT > 0) { ctx.strokeStyle = 'rgba(140,210,255,0.8)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.9, r, r * 0.4, 0, 0, TAU); ctx.stroke(); }

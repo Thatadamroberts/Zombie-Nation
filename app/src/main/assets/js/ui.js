@@ -252,9 +252,10 @@
     var boss = ZN.BOSSES[ZN.bossFor(c)], seP = ZN.currentSeason();
     var threatLvl = ['Low', 'Moderate', 'High', 'Severe', 'Extreme', 'Apocalyptic'][Math.min(5, Math.floor(tier / 4))];
     var neighbours = c.adj.map(function (n) { return ZN.MAP.byId[n].short; }).join(', ');
-    var trait = ZN.TRAITS[ZN.traitFor(c)];
+    var trait = ZN.TRAITS[ZN.traitFor(c)], local = ZN.ENEMIES[ZN.REGIONAL[c.region]];
     var info = '<b>' + waves + '</b> wave' + (waves > 1 ? 's' : '') + ' + <b>' + boss.name + '</b> · Threat: <b>' + threatLvl + '</b>' +
       '<br>' + trait.icon + ' <b>' + trait.name + '</b>: ' + trait.desc +
+      (local ? '<br>🧟 Local horde: <b>' + local.name + 's</b>' : '') +
       (seP ? '<br>' + seP.icon + ' <b>' + seP.name + '</b>: ' + ZN.BOSSES[seP.boss].name + ' may lead the horde' : '') + '<br>Borders: ' + neighbours;
     if (!avail) info += '<br><span style="color:#f99">Liberate a neighbouring county first.</span>';
     if (threat) info += '<br><span style="color:#ff8080"><b>The horde is counter-attacking!</b> Win here within ' + Save.data.threats[id] + ' mission' + (Save.data.threats[id] > 1 ? 's' : '') + ' or it falls.</span>';
@@ -526,6 +527,19 @@
       var d = ZN.PASSIVES[id];
       list.appendChild(entry(d.icon, '#8fd18f', d.name, d.desc, unlocked[id], id));
     });
+    list.appendChild(el('div', 'section-h', 'Local hordes'));
+    var seenLocal = (Save.data.stats.regional || {}), regionNames = { city: 'Cities', scot: 'Scotland', high: 'Highlands', north: 'The North', wales: 'Wales', sw: 'South West', east: 'East Anglia', mid: 'Midlands', se: 'South East', ni: 'Northern Ireland' };
+    var byType = {};
+    Object.keys(ZN.REGIONAL).forEach(function (rg) { var t = ZN.REGIONAL[rg]; (byType[t] = byType[t] || []).push(regionNames[rg]); });
+    Object.keys(byType).forEach(function (t) {
+      var en = ZN.ENEMIES[t], met = seenLocal[t];
+      var row = el('div', 'item' + (met ? '' : ' locked'));
+      row.appendChild(icon({ trader: '🍅', berserker: '🏴', miner: '⛏️', ram: '🐏', seagull: '🐦', bogbody: '🟫', hardhat: '👷', morris: '🔔', banshee: '👻' }[t], '#3a414c'));
+      var bd = el('div', 'body');
+      bd.appendChild(el('div', 'name', en.name + (met ? ' ✅' : '')));
+      bd.appendChild(el('div', 'desc', byType[t].join(', ') + ' · ' + ZN.REGIONAL_DESC[t]));
+      row.appendChild(bd); list.appendChild(row);
+    });
     list.appendChild(el('div', 'section-h', 'Evolution recipes'));
     ZN.EVOLUTIONS.forEach(function (ev) {
       var into = ZN.WEAPONS[ev.into], row = el('div', 'item');
@@ -757,6 +771,8 @@
     if (r.win) { d.stats.bosses[r.bossKey] = true; d.stats.bossKills++; newRelic = Save.grantRelic(r.bossKey); }
     d.stats.timePlayed += r.time; d.stats.coinsEarned += coins; d.stats.buffs += r.buffs || 0;
     d.stats.eventsDone = (d.stats.eventsDone || 0) + (r.eventsDone || 0);
+    d.stats.regional = d.stats.regional || {};
+    for (var rk in (r.regional || {})) d.stats.regional[rk] = true;
     if (r.season && r.tokens) { d.tokens = d.tokens || {}; d.tokens[r.season] = (d.tokens[r.season] || 0) + r.tokens; d.stats.tokens = (d.stats.tokens || 0) + r.tokens; }
     if (r.win && r.damageTaken === 0) d.stats.noHitWins++;
     var threats = isDaily ? { defended: null, fallen: [], newThreat: null } : Save.updateThreats(county.id, r.win);
