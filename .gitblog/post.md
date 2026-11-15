@@ -1,5 +1,6 @@
 ---
 title: Zombie Nation
+playable: true
 summary: A survivor-style zombie game for Android, set across a UK overrun by the dead. Liberate 69 counties one border at a time, from the Beefeater Colossus in London to Nessie in the Highlands.
 imageAlt: A pixel-art survivor with a corgi companion fighting a horde of zombies while escorting an ambulance, with orbiting hubcaps and molotov fires around them
 ---
@@ -7,6 +8,8 @@ imageAlt: A pixel-art survivor with a corgi companion fighting a horde of zombie
 ## What it is
 
 Zombie Nation is an auto-shooter for Android in the style of Vampire Survivors, set in a zombie-overrun United Kingdom. You move with a floating thumb-stick and your weapons fire on their own. Zombies drop XP gems, and each level-up offers a new weapon, a passive or an upgrade. Survive the waves, kill the horde boss, and that county is liberated.
+
+**[Play it in your browser](https://thatadamroberts.github.io/Zombie-Nation/)** with WASD or the arrow keys, or press Play above to play it right here. The Android app is the same game, so on a phone you can drag anywhere to move.
 
 The British setting runs through everything. You fight with a Cricket Bat, Pub Darts, a Stinking Bishop cheese aura and a Garden Gnome turret. Max out the Pub Darts with a Lucky Horseshoe and they evolve into **One Hundred and Eighty!** Bosses come from British folklore, including Black Shuck, Spring-heeled Jack, the Lambton Worm and the Green Knight.
 
