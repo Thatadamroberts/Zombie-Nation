@@ -104,7 +104,7 @@
       g.effects.push({ kind: 'bottle', sx: p.x, sy: p.y, tx: tx, ty: ty, t: 0, T: T });
       (function (tx, ty, delay) {
         setTimeoutGame(g, delay, function () {
-          g.pools.push({ x: tx, y: ty, r: R, life: life, tick: 0.35, tickT: 0, dmg: s.dmg, burn: s.burn || 0, slow: s.slow, freeze: s.freeze, color: color });
+          g.pools.push({ x: tx, y: ty, r: R, life: life, tick: 0.35, tickT: 0, dmg: s.dmg, burn: s.burn || 0, slow: s.slow, freeze: s.freeze, heal: s.heal, color: color });
           ZN.Audio.play('boom', 120);
         });
       })(tx, ty, T);
@@ -300,7 +300,68 @@
     }
   }
 
+  // ---------------- Medieval weapons
+  function longsword(g, w, s, dt, evo) {
+    if (!ready(g, w, s.cd, dt)) return;
+    w.side = !w.side;
+    var R = s.radius * g.stat.area, p = g.player, tgt = g.nearestEnemy(p.x, p.y, R * 1.6);
+    var aim = tgt ? Math.atan2(tgt.y - p.y, tgt.x - p.x) : facing(g);
+    var base = aim + (s.both ? 0 : (w.side ? 0.35 : -0.35));
+    slash(g, base, R, s.arc, s.dmg, { kb: 60, color: '#ffffff' }, evo ? 'rgba(255,240,160,0.55)' : 'rgba(220,224,230,0.5)');
+    if (s.both) slash(g, base + Math.PI, R, s.arc, s.dmg, { kb: 60, color: '#ffffff', silent: true }, evo ? 'rgba(255,240,160,0.55)' : 'rgba(220,224,230,0.5)');
+    if (s.wave) shoot(g, base, { speed: 480, r: 12, dmg: s.dmg * 0.8, pierce: 9999, life: 0.55, kind: 'bolt', color: '#fff0a0', kb: 80, silent: true });
+    ZN.Audio.play('slash', 100);
+  }
+  function longbow(g, w, s, dt) {
+    if (w.t > 0) { w.t -= dt; return; }
+    var p = g.player, tgt = g.nearestEnemy(p.x, p.y, 420);
+    if (!tgt) return;
+    w.t = s.cd * g.stat.cooldown;
+    var n = s.amount + g.stat.amount, base = Math.atan2(tgt.y - p.y, tgt.x - p.x);
+    for (var i = 0; i < n; i++) shoot(g, base + (i - (n - 1) / 2) * 0.1, { speed: 560, r: 4, dmg: s.dmg, pierce: s.pierce, life: 1.0, kind: 'bolt', color: '#a07a4a', kb: 25, silent: true });
+    ZN.Audio.play('shoot', 110);
+  }
+  function arrowStorm(g, w, s, dt) {
+    if (!ready(g, w, s.cd, dt)) return;
+    var n = s.amount + g.stat.amount * 2;
+    for (var i = 0; i < n; i++) {
+      var e = g.randomEnemyOnScreen();
+      if (!e) break;
+      g.projectiles.push({ x: e.x + rand(-6, 6), y: e.y - 160, vx: 0, vy: 640, r: 5, dmg: s.dmg, pierce: s.pierce, life: 0.3, maxLife: 0.3, hit: {}, kind: 'bolt', color: '#c8a060', kb: 10, silent: true });
+    }
+    ZN.Audio.play('shoot', 120);
+  }
+  function trebuchet(g, w, s, dt, evo) {
+    if (!ready(g, w, s.cd, dt)) return;
+    lob(g, s, s.amount + g.stat.amount, evo ? '☄️' : '🪨', function (x, y) {
+      var R = s.radius * g.stat.area;
+      g.queryEnemies(x, y, R, function (e) { g.damage(e, s.dmg, { kb: 160, kx: e.x - x, ky: e.y - y, burn: s.burn, silent: true }); });
+      g.effects.push({ kind: 'boom', x: x, y: y, r: R, t: 0, T: 0.45, color: evo ? '#ff8a2a' : '#a08a6a' });
+      g.emit(x, y, 12, '#7a6a4a', 180, 0.6, 4);
+      g.shake = Math.max(g.shake, 5); ZN.Audio.play('boom', 90);
+    });
+  }
+  function axes(g, w, s, dt) {
+    if (!ready(g, w, s.cd, dt)) return;
+    var n = s.amount + g.stat.amount, base = facing(g);
+    for (var i = 0; i < n; i++) shoot(g, base + (n > 3 ? i * TAU / n : (i - (n - 1) / 2) * 0.5), { speed: 300, r: 10 * g.stat.area, dmg: s.dmg, pierce: 9999,
+      life: s.life * g.stat.duration, kind: 'axe', kb: 70, boomerang: true, silent: true });
+    ZN.Audio.play('slash', 100);
+  }
+
   ZN.WEAPON_LOGIC = {
+    longsword: function (g, w, s, dt) { longsword(g, w, s, dt, false); },
+    caliburn: function (g, w, s, dt) { longsword(g, w, s, dt, true); },
+    longbow: function (g, w, s, dt) { longbow(g, w, s, dt); },
+    arrowStorm: function (g, w, s, dt) { arrowStorm(g, w, s, dt); },
+    flail: function (g, w, s, dt) { orbit(g, w, s, dt); },
+    morningStar: function (g, w, s, dt) { orbit(g, w, s, dt); },
+    trebuchet: function (g, w, s, dt) { trebuchet(g, w, s, dt, false); },
+    siegeEngine: function (g, w, s, dt) { trebuchet(g, w, s, dt, true); },
+    holyWater: function (g, w, s, dt) { if (!ready(g, w, s.cd, dt)) return; throwBottles(g, s, s.amount + g.stat.amount, '#7ad0ff'); },
+    sanctified: function (g, w, s, dt) { if (!ready(g, w, s.cd, dt)) return; throwBottles(g, s, s.amount + g.stat.amount, '#bfefff'); },
+    throwingAxes: function (g, w, s, dt) { axes(g, w, s, dt); },
+    axeWhirlwind: function (g, w, s, dt) { axes(g, w, s, dt); },
     fireworks: function (g, w, s, dt) {
       if (w.t > 0) { w.t -= dt; return; }
       var p = g.player, tgt = g.nearestEnemy(p.x, p.y, 400);
@@ -600,7 +661,21 @@
     });
   }
 
+  function drawFlail(g, ctx, w) {
+    if (!w.n) return;
+    var p = g.player;
+    for (var i = 0; i < w.n; i++) {
+      var a = w.ang + i * TAU / w.n, x = p.x + Math.cos(a) * w.R, y = p.y + Math.sin(a) * w.R;
+      ctx.strokeStyle = '#6a6e74'; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(p.x, p.y - 4); ctx.lineTo(x, y); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#8a9098';
+      ctx.beginPath(); for (var k = 0; k < 16; k++) { var r = k % 2 ? 9 : 14, aa = k * TAU / 16 + g.time * 6; ctx.lineTo(x + Math.cos(aa) * r, y + Math.sin(aa) * r); } ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#b0b8c0'; ctx.beginPath(); ctx.arc(x - 2, y - 2, 4, 0, TAU); ctx.fill();
+    }
+  }
+
   ZN.WEAPON_DRAW = {
+    flail: drawFlail, morningStar: drawFlail,
     landMine: drawMines, minefield: drawMines,
     lighthouse: function (g, ctx, w) { drawBeams(g, ctx, w, false); },
     beacon: function (g, ctx, w) { drawBeams(g, ctx, w, true); },

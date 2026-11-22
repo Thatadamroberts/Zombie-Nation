@@ -87,6 +87,13 @@
                  [77, 4], [76, 2], [72, 2], [69, 4], [72, 4],
                  [71, 2], [74, 2], [79, 4], [77, 2], [74, 2], [71, 4],
                  [68, 4], [71, 4], [76, 6], [0, 2]]), leadVol: 0.045, bassWave: 'square' },
+    battle_medieval: { bpm: 116, roots: [38, 36, 34, 33],
+      bass: [0, -1, -1, 7, -1, -1, 0, -1, 12, -1, -1, 7, -1, -1, 0, -1],
+      kick: 'x.......x.......', snare: '....x.......x...', hat: 'x...x...x...x.x.',
+      lead: seq([[74, 4], [77, 2], [76, 2], [74, 4], [69, 4],
+                 [72, 4], [76, 2], [74, 2], [72, 4], [67, 4],
+                 [70, 4], [74, 2], [72, 2], [70, 4], [65, 4],
+                 [69, 4], [73, 4], [76, 4], [81, 4]]), leadVol: 0.06, bassWave: 'triangle', leadWave: 'triangle' },
     boss: { bpm: 160, roots: [45, 45, 46, 40],
       bass: [0, 0, 12, 0, 0, 0, 12, 0, 0, 0, 12, 0, 1, 0, 12, 0],
       kick: 'x.x.x.x.x.x.x.x.', snare: '....x.......x..x', hat: 'xxxxxxxxxxxxxxxx',
@@ -130,7 +137,7 @@
     var li = step % tr.lead.length, ln = tr.lead[li];
     if (ln > 0) {
       var len = 1; while (tr.lead[(li + len) % tr.lead.length] === -1 && len < 16) len++;
-      note(mf(ln), t, sd * len * 0.95, 'square', tr.leadVol);
+      note(mf(ln), t, sd * len * 0.95, tr.leadWave || 'square', tr.leadVol);
     }
   }
   function tick() {

@@ -1061,3 +1061,205 @@ ZN.ACHIEVEMENTS.push(
   { id: 'locals', icon: '🗺️', name: 'Local Knowledge', desc: 'Slay {n} different regional zombie types.', value: function (x) { return Object.keys(x.stats.regional || {}).length; },
     tiers: [[3, { coins: 500 }], [6, { coins: 1500 }], [9, { coins: 4000 }]] }
 );
+
+// ===========================================================================
+// ERAS: Medieval, Modern and Future Britain. Each era has its own map progress,
+// currency, shop, weapon pool, enemies, bosses and lieutenants.
+// ===========================================================================
+ZN.ERA_IDS = ['medieval', 'modern', 'future'];
+ZN.ERAS = {
+  medieval: {
+    id: 'medieval', name: 'Medieval Britain', short: 'Medieval', icon: '⚔️', cur: '🪙', curName: 'Groats', year: 'AD 1348',
+    desc: 'The Black Death walks. Knights, plague and sorcery.',
+    available: true, startWeapon: 'longsword', shopName: 'Blacksmith & Apothecary', music: 'battle_medieval',
+    roles: { shambler: 'plague', runner: 'skeleton', crawler: 'rat', brute: 'ghoulKnight', spitter: 'archer', bloater: 'plagueBearer' },
+    extras: [['wraith', 2, 2]],   // [type, weight, from effective level]
+    regional: false,
+    bossByRegion: { city: 'plagueKing', se: 'blackKnight', east: 'witchfinder', mid: 'blackKnight', north: 'wyrm', wales: 'druidMona',
+      scot: 'pictish', high: 'pictish', ni: 'wyrm', sw: 'wyrm' },
+    countyBoss: { london: 'plagueKing', gwynedd: 'druidMona', essex: 'witchfinder', suffolk: 'witchfinder', northumb: 'pictish', kent: 'blackKnight' },
+    minis: ['executioner', 'monk', 'taxman', 'jester'],
+    landmarks: { se: 'keep', sw: 'stonehenge', east: 'abbey', mid: 'keep', north: 'abbey', wales: 'castle', scot: 'castle', high: 'stonehenge', city: 'keep', ni: 'castle' },
+    decor: ['cart', 'stocks', 'well', 'tent', 'hay', 'tree', 'grave', 'gallows'],
+    events: {
+      convoy: { name: 'Escort the Hay Cart', icon: '🐴', desc: 'Stay close so the cart keeps rolling, and keep the dead off it!' },
+      crates: { name: 'Raid the Wagons', icon: '🛢️', desc: 'Grab the supply barrels before the looters do!' },
+      hold: { name: 'Defend the Village Well', icon: '⛲', desc: 'Hold the well until the villagers are safe!' },
+      bounty: { name: 'Wanted: The Highwayman', icon: '🏴‍☠️', desc: 'A golden highwayman flees with stolen loot. Catch him!' }
+    }
+  },
+  modern: {
+    id: 'modern', name: 'Modern Britain', short: 'Modern', icon: '🏙️', cur: '💷', curName: 'Pounds', year: 'Today',
+    desc: 'The outbreak you know: high streets, motorways and the horde.',
+    available: true, startWeapon: 'pistol', shopName: 'Upgrades', music: 'battle',
+    roles: {}, extras: [], regional: true, minis: null, events: {}
+  },
+  future: {
+    id: 'future', name: 'Future Britain', short: 'Future', icon: '🚀', cur: '💠', curName: 'Credits', year: 'AD 2188',
+    desc: 'Neon cities, cyber-zombies and rogue machines. Coming soon!',
+    available: false, startWeapon: 'pistol', shopName: 'Tech Lab', music: 'battle',
+    roles: {}, extras: [], regional: false, minis: null, events: {}
+  }
+};
+ZN.availableEras = function () { return ZN.ERA_IDS.filter(function (e) { return ZN.ERAS[e].available; }); };
+ZN.weaponEras = function (id) { var w = ZN.WEAPONS[id]; return (w && w.eras) || ['modern']; };
+ZN.weaponInEra = function (id, era) { var w = ZN.WEAPONS[id]; if (!w) return false; if (w.season) return true; return ZN.weaponEras(id).indexOf(era) >= 0; };
+ZN.weaponHomeEra = function (id) { return ZN.weaponEras(id)[0]; };
+
+// Era-aware county helpers (Modern uses the original tables)
+(function () {
+  var baseBoss = ZN.bossFor, baseLandmark = ZN.landmarkFor;
+  ZN.bossFor = function (c, era) {
+    var e = ZN.ERAS[era || 'modern'];
+    if (!e || !e.bossByRegion) return baseBoss(c);
+    return (e.countyBoss && e.countyBoss[c.id]) || e.bossByRegion[c.region] || baseBoss(c);
+  };
+  ZN.landmarkFor = function (c, era) {
+    var e = ZN.ERAS[era || 'modern'];
+    if (!e || !e.landmarks) return baseLandmark(c);
+    return e.landmarks[c.region] || 'castle';
+  };
+})();
+
+// Which era's shop sells each permanent upgrade (each stat family lives in one era)
+(function () {
+  var shopEra = { might: 'medieval', maxHp: 'medieval', armor: 'medieval', regen: 'medieval', revival: 'medieval',
+    speed: 'modern', cooldown: 'modern', amount: 'modern', greed: 'modern', reroll: 'modern', skip: 'modern', banish: 'modern',
+    area: 'future', duration: 'future', magnet: 'future', luck: 'future', growth: 'future' };
+  ZN.SHOP.forEach(function (it) { it.era = shopEra[it.id] || 'modern'; });
+  // until an era ships, its stock is sold in Modern so nothing becomes unbuyable
+  ZN.SHOP.forEach(function (it) { it.homeEra = it.era; if (!ZN.ERAS[it.era].available) it.era = 'modern'; });
+})();
+
+// Existing weapons that also belong in the Medieval era
+['iceSword', 'fireSword', 'elecSword', 'swordOfLight', 'crossbow', 'ballista', 'halberd', 'yeomansWrath', 'bagpipes', 'highlandLament', 'teslaBolts']
+  .forEach(function (id) { ZN.WEAPONS[id].eras = ['medieval', 'modern']; });
+['cheese', 'stilton'].forEach(function (id) { ZN.WEAPONS[id].eras = ['modern', 'medieval']; });
+
+// ---------------------------------------------------------------- Medieval weapons
+(function () {
+  var W = {
+    longsword: {
+      name: 'Longsword', icon: '🗡️', color: '#d0d4da', kind: 'Medieval · Melee', max: 6, eras: ['medieval'],
+      levels: ['Wide sweeping cuts that alternate sides.', '+6 damage', '+20% reach', 'Cuts both ways at once', '+8 damage, -15% cooldown', '+12 damage, wider arc'],
+      stats: function (l) { return { dmg: 22 + (l >= 2 ? 6 : 0) + (l >= 5 ? 8 : 0) + (l >= 6 ? 12 : 0), cd: l >= 5 ? 0.72 : 0.85, radius: 96 * (l >= 3 ? 1.2 : 1), both: l >= 4, arc: l >= 6 ? 3.0 : 2.6 }; }
+    },
+    longbow: {
+      name: 'Longbow', icon: '🏹', color: '#a07a4a', kind: 'Medieval · Ranged', max: 6, eras: ['medieval'],
+      levels: ['Volleys of arrows at the nearest dead.', '+1 arrow', '+6 damage', '+1 pierce', '+2 arrows', '+8 damage, -20% cooldown'],
+      stats: function (l) { return { dmg: 12 + (l >= 3 ? 6 : 0) + (l >= 6 ? 8 : 0), cd: l >= 6 ? 0.75 : 0.95, amount: 2 + (l >= 2 ? 1 : 0) + (l >= 5 ? 2 : 0), pierce: 1 + (l >= 4 ? 1 : 0) }; }
+    },
+    flail: {
+      name: 'Flail', icon: '⛓️', color: '#8a9098', kind: 'Medieval · Orbit', max: 6, eras: ['medieval'],
+      levels: ['A spiked ball on a chain whirls around you.', '+8 damage', '+1 flail', '+20% reach', '+1 flail, faster spin', '+12 damage, crushing knockback'],
+      stats: function (l) { return { dmg: 22 + (l >= 2 ? 8 : 0) + (l >= 6 ? 12 : 0), amount: 1 + (l >= 3 ? 1 : 0) + (l >= 5 ? 1 : 0), radius: 90 * (l >= 4 ? 1.2 : 1), spin: l >= 5 ? 3.4 : 2.6, on: 999, cycle: 999, kb: l >= 6 ? 160 : 100 }; }
+    },
+    trebuchet: {
+      name: 'Trebuchet', icon: '🪨', color: '#8a7a5a', kind: 'Medieval · Siege', max: 6, eras: ['medieval'],
+      levels: ['Hurls huge boulders that flatten the horde.', '+15 damage', '+20% impact', '-20% cooldown', '+1 boulder', '+25 damage'],
+      stats: function (l) { return { dmg: 55 + (l >= 2 ? 15 : 0) + (l >= 6 ? 25 : 0), cd: l >= 4 ? 2.4 : 3.0, amount: 1 + (l >= 5 ? 1 : 0), radius: 75 * (l >= 3 ? 1.2 : 1) }; }
+    },
+    holyWater: {
+      name: 'Holy Water', icon: '💧', color: '#7ad0ff', kind: 'Medieval · Area', max: 6, eras: ['medieval'],
+      levels: ['Blessed flasks leave pools that sear and slow the dead.', '+1 flask', '+20% pool size', '+4 damage', '+1 flask, longer pools', '+6 damage, stronger slow'],
+      stats: function (l) { return { dmg: 8 + (l >= 4 ? 4 : 0) + (l >= 6 ? 6 : 0), cd: 2.4, amount: 1 + (l >= 2 ? 1 : 0) + (l >= 5 ? 1 : 0), radius: 50 * (l >= 3 ? 1.2 : 1), life: 3 + (l >= 5 ? 1 : 0), slow: l >= 6 ? 2 : 1.2 }; }
+    },
+    throwingAxes: {
+      name: 'Throwing Axes', icon: '🪓', color: '#b0b4ba', kind: 'Medieval · Boomerang', max: 6, eras: ['medieval'],
+      levels: ['Spinning axes fly out and back.', '+1 axe', '+8 damage', 'Axes fly further', '+1 axe', '+10 damage, -20% cooldown'],
+      stats: function (l) { return { dmg: 20 + (l >= 3 ? 8 : 0) + (l >= 6 ? 10 : 0), cd: l >= 6 ? 1.2 : 1.5, amount: 1 + (l >= 2 ? 1 : 0) + (l >= 5 ? 1 : 0), life: l >= 4 ? 1.6 : 1.25 }; }
+    },
+    // Medieval evolutions
+    caliburn: { name: 'Caliburn', icon: '⚔️', color: '#fff0a0', kind: 'Evolved · Melee', max: 1, evolved: true, eras: ['medieval'],
+      levels: ['The sword in the stone: huge arcs on both sides and a cutting wave of light.'],
+      stats: function () { return { dmg: 45, cd: 0.8, radius: 120, both: true, arc: 3.0, wave: true }; } },
+    arrowStorm: { name: 'Arrow Storm', icon: '🎯', color: '#c8a060', kind: 'Evolved · Ranged', max: 1, evolved: true, eras: ['medieval'],
+      levels: ['The sky darkens with arrows that rain on every zombie in sight.'],
+      stats: function () { return { dmg: 22, cd: 0.6, amount: 10, pierce: 1 }; } },
+    morningStar: { name: 'Morning Star Maelstrom', icon: '🌟', color: '#c8d0d8', kind: 'Evolved · Orbit', max: 1, evolved: true, eras: ['medieval'],
+      levels: ['Three flails whirl around you in a storm of iron.'],
+      stats: function () { return { dmg: 40, amount: 3, radius: 115, spin: 3.6, on: 999, cycle: 999, kb: 180 }; } },
+    siegeEngine: { name: 'Siege Engine', icon: '🏰', color: '#a08a6a', kind: 'Evolved · Siege', max: 1, evolved: true, eras: ['medieval'],
+      levels: ['A full siege battery: three flaming boulders at a time.'],
+      stats: function () { return { dmg: 90, cd: 2.0, amount: 3, radius: 95, burn: 8 }; } },
+    sanctified: { name: 'Sanctified Ground', icon: '✝️', color: '#bfefff', kind: 'Evolved · Area', max: 1, evolved: true, eras: ['medieval'],
+      levels: ['Holy pools that freeze the dead and heal you while you stand in them.'],
+      stats: function () { return { dmg: 16, cd: 2.0, amount: 4, radius: 75, life: 4.5, slow: 2.5, heal: true }; } },
+    axeWhirlwind: { name: 'Whirlwind of Axes', icon: '🌪️', color: '#d8dce2', kind: 'Evolved · Boomerang', max: 1, evolved: true, eras: ['medieval'],
+      levels: ['Six axes spin out in every direction and come home.'],
+      stats: function () { return { dmg: 34, cd: 1.1, amount: 6, life: 1.7 }; } }
+  };
+  for (var k in W) {
+    ZN.WEAPONS[k] = W[k];
+    if (W[k].evolved) {   // evolutions get 5 levels like the others
+      (function (w) {
+        var base = w.stats; w.max = ZN.EVO_MAX;
+        w.levels = [w.levels[0], '+20% damage', '+20% damage, -10% cooldown', '+20% damage, +1 projectile', '+20% damage, -10% cooldown, +15% area'];
+        w.stats = function (l) {
+          var s = base(1), m = 1 + 0.2 * ((l || 1) - 1);
+          if (s.dmg) s.dmg *= m;
+          if (l >= 3 && s.cd) s.cd *= 0.9; if (l >= 5 && s.cd) s.cd *= 0.9;
+          if (l >= 4 && s.amount) s.amount += 1;
+          if (l >= 5 && s.radius) s.radius *= 1.15;
+          return s;
+        };
+      })(W[k]);
+    }
+  }
+  ZN.EVOLUTIONS.push(
+    { from: ['longsword'], passive: 'fullEnglish', into: 'caliburn' },
+    { from: ['longbow'], passive: 'ammoBelt', into: 'arrowStorm' },
+    { from: ['flail'], passive: 'brolly', into: 'morningStar' },
+    { from: ['trebuchet'], passive: 'unionCape', into: 'siegeEngine' },
+    { from: ['holyWater'], passive: 'tea', into: 'sanctified' },
+    { from: ['throwingAxes'], passive: 'wellies', into: 'axeWhirlwind' }
+  );
+  ZN.UNLOCKS[1].push('longsword', 'longbow');
+  ZN.UNLOCKS[2].push('holyWater');
+  ZN.UNLOCKS[3].push('throwingAxes');
+  ZN.UNLOCKS[4].push('flail');
+  ZN.UNLOCKS[6].push('trebuchet');
+})();
+
+// ---------------------------------------------------------------- Medieval enemies
+ZN.ENEMIES.plague       = { name: 'Plague Shambler', hp: 13, speed: 38, dmg: 8, r: 12, xp: 1, color: '#5a5a3a', skin: '#b0b08a', flair: 'plague' };
+ZN.ENEMIES.skeleton     = { name: 'Skeleton', hp: 8, speed: 80, dmg: 6, r: 10, xp: 1, color: '#d8d4c4', skin: '#ece8da', pants: '#c8c4b4' };
+ZN.ENEMIES.rat          = { name: 'Plague Rat', hp: 5, speed: 100, dmg: 4, r: 8, xp: 1, color: '#5a4a3a', skin: '#8a7a6a' };
+ZN.ENEMIES.ghoulKnight  = { name: 'Ghoul Knight', hp: 80, speed: 30, dmg: 18, r: 20, xp: 5, color: '#7a1a1a', skin: '#8fbf72', metal: '#9aa0a8', pants: '#6a7078', armorPct: 0.25 };
+ZN.ENEMIES.archer       = { name: 'Zombie Archer', hp: 18, speed: 36, dmg: 6, r: 12, xp: 3, color: '#3a5a2a', skin: '#a8b890', ranged: true, flair: 'archer', shotColor: '#c8a060' };
+ZN.ENEMIES.plagueBearer = { name: 'Plague Bearer', hp: 34, speed: 30, dmg: 8, r: 16, xp: 3, color: '#4a4a2a', skin: '#a8a070', explodes: true, gas: true, flair: 'bearer' };
+ZN.ENEMIES.wraith       = { name: 'Wraith', hp: 16, speed: 46, dmg: 8, r: 12, xp: 3, color: '#4a3a5a', skin: '#8a7aa0', shape: 'banshee', flyer: true };
+
+// ---------------------------------------------------------------- Medieval bosses + relics
+ZN.BOSSES.blackKnight = { name: 'The Black Knight', hpMul: 1.1, speed: 46, r: 38, color: '#1a1a20', skin: '#4a4a52', shape: 'blackKnight', abilities: ['charge', 'shield', 'slam'], minion: 'brute' };
+ZN.BOSSES.plagueKing  = { name: 'The Plague King', hpMul: 1.15, speed: 40, r: 38, color: '#4a4a1a', skin: '#a8a060', shape: 'plagueKing', abilities: ['poison', 'summon', 'homing'], minion: 'bloater', shot: '#9be03a' };
+ZN.BOSSES.wyrm        = { name: 'The Wyrm', hpMul: 1.15, speed: 50, r: 38, color: '#8a1a1a', skin: '#c84a2a', shape: 'worm', abilities: ['dive', 'volley', 'charge'], minion: 'crawler', shot: '#ff8a2a' };
+ZN.BOSSES.witchfinder = { name: 'The Witchfinder General', hpMul: 0.95, speed: 56, r: 30, color: '#14141a', skin: '#e0d8c8', shape: 'jack', abilities: ['leap', 'homing', 'kegs'], minion: 'runner', shot: '#ff6a2a' };
+ZN.BOSSES.pictish     = { name: 'The Pictish Warlord', hpMul: 1.2, speed: 52, r: 36, color: '#2a3a6a', skin: '#6a8ad8', shape: 'zombie', abilities: ['pounce', 'frenzy', 'summon'], minion: 'runner' };
+ZN.BOSSES.druidMona   = { name: 'The Druid of Mona', hpMul: 1.0, speed: 40, r: 34, color: '#3a4a2a', skin: '#a8b0a0', shape: 'druid', abilities: ['tentacles', 'heal', 'volley'], minion: 'shambler', shot: '#7dff8a' };
+ZN.RELICS.blackKnight = { name: "Black Knight's Gauntlet", icon: '🧤', desc: '+3 armour', apply: function (s) { s.armor += 3; } };
+ZN.RELICS.plagueKing  = { name: 'Plague Doctor Mask', icon: '🎭', desc: '+0.6 HP/s regeneration', apply: function (s) { s.regen += 0.6; } };
+ZN.RELICS.wyrm        = { name: 'Wyrm Heart', icon: '❤️‍🔥', desc: '+12% damage, +10% max HP', apply: function (s) { s.might += 0.12; s.maxHp *= 1.1; } };
+ZN.RELICS.witchfinder = { name: "Witchfinder's Lantern", icon: '🏮', desc: '+10% crit chance', apply: function (s) { s.crit += 0.1; } };
+ZN.RELICS.pictish     = { name: 'Pictish Woad', icon: '🔵', desc: '+15% move speed', apply: function (s) { s.speed *= 1.15; } };
+ZN.RELICS.druidMona   = { name: 'Mistletoe Crown', icon: '🌿', desc: '-12% weapon cooldown', apply: function (s) { s.cooldown *= 0.88; } };
+
+// ---------------------------------------------------------------- Medieval lieutenants
+ZN.MINIBOSSES.executioner = { name: 'The Executioner', color: '#1a1a1a', skin: '#c89a7a', accessory: 'executioner', abilities: ['charge', 'slam'], minion: 'runner' };
+ZN.MINIBOSSES.monk        = { name: 'The Mad Monk', color: '#5a3a1a', skin: '#c8a888', accessory: 'monk', abilities: ['heal', 'poison', 'summon'], minion: 'shambler' };
+ZN.MINIBOSSES.taxman      = { name: "The King's Tax Collector", color: '#6a1a5a', skin: '#c8a090', accessory: 'taxman', abilities: ['summon', 'frenzy'], minion: 'runner' };
+ZN.MINIBOSSES.jester      = { name: 'The Jester', color: '#c8202e', skin: '#e0c8a0', accessory: 'jester', abilities: ['pounce', 'homing'], minion: 'crawler', speed: 56, shot: '#ffd23a' };
+ZN.ERAS.modern.minis = Object.keys(ZN.MINIBOSSES).filter(function (k) { return ZN.ERAS.medieval.minis.indexOf(k) < 0; });
+
+// Achievements for eras (Liberator now counts every era)
+(function () {
+  var lib = ZN.achievementById('liberator');
+  lib.desc = 'Liberate {n} counties across all eras.';
+  lib.value = function (x) { return ZN.Save.totalCleared(); };
+  lib.tiers = [[1, { coins: 50 }], [10, { coins: 200 }], [25, { coins: 500 }], [69, { coins: 1500 }], [138, { coins: 6000 }]];
+  ZN.achievementById('hunter').tiers = [[1, { coins: 100 }], [5, { coins: 300 }], [12, { coins: 1000 }], [20, { coins: 3000 }]];
+  ZN.achievementById('relics').tiers = [[3, { coins: 300 }], [8, { coins: 1000 }], [16, { coins: 2500 }], [24, { coins: 6000 }]];
+  ZN.ACHIEVEMENTS.push({ id: 'traveller', icon: '⏳', name: 'Time Traveller', desc: 'Liberate {n} counties in every available era.',
+    value: function (x) { return Math.min.apply(null, ZN.availableEras().map(function (e) { return ZN.Save.clearedIn(e); })); },
+    tiers: [[1, { coins: 500 }], [10, { coins: 2500 }], [69, { coins: 20000 }]] });
+})();

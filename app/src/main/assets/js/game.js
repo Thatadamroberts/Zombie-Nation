@@ -17,7 +17,11 @@
     this.county = opts.county;
     this.waves = opts.waves;
     this.tier = opts.tier;
+    this.era = opts.era || (ZN.Save.data.era) || 'modern';
+    this.eraDef = ZN.ERAS[this.era] || ZN.ERAS.modern;
+    this.roleMap = this.eraDef.roles || {};
     this.style = ZN.REGION_STYLE[opts.county.region] || ZN.REGION_STYLE.se;
+    if (this.eraDef.decor) this.style = Object.assign({}, this.style, { decor: this.eraDef.decor });
     this.seed = (opts.county.id.split('').reduce(function (a, c) { return a * 31 + c.charCodeAt(0); }, 7)) >>> 0;
 
     this.time = 0; this.waveIdx = 0; this.waveTime = 0;
@@ -34,14 +38,14 @@
     this.player = { x: 0, y: 0, r: 13, hp: 100, fx: 1, fy: 0, level: 1, xp: 0, xpNext: 5, hurtT: 0, iframes: 0, walk: 0, moving: false };
     this.input = { x: 0, y: 0 }; this.keys = {}; this.joy = null;
     this.char = ZN.characterById(opts.character);
-    this.bossKey = ZN.bossFor(opts.county);
-    this.regional = ZN.REGIONAL[opts.county.region] || null;
+    this.bossKey = ZN.bossFor(opts.county, this.era);
+    this.regional = this.eraDef.regional ? (ZN.REGIONAL[opts.county.region] || null) : null;
     this.ng = opts.daily ? 0 : (opts.ng || 0);
     this.season = ZN.currentSeason();
     this.runTokens = 0; this.eventsDone = 0; this.wevent = null; this.eventWave = -1;
     // During a seasonal event the seasonal boss leads the horde in daily challenges and ~40% of missions
     if (this.season && (opts.daily || Math.random() < 0.4)) this.bossKey = this.season.boss;
-    this.landmark = ZN.landmarkFor(opts.county);
+    this.landmark = ZN.landmarkFor(opts.county, this.era);
     this.shake = 0; this.slowT = 0; this.timers = [];
     this.mods = {}; var g0 = this;
     (opts.mods || []).forEach(function (m) { g0.mods[m] = true; });
@@ -60,7 +64,9 @@
     this.computeStats();
     this.player.hp = this.stat.maxHp;
     this.revivals = this.stat.revival;
-    this.addWeapon(this.mods.pistolOnly ? 'pistol' : this.char.start);
+    var startW = this.char.start;
+    if (this.mods.pistolOnly || !ZN.weaponInEra(startW, this.era)) startW = this.eraDef.startWeapon;
+    this.addWeapon(startW);
     this.pet = opts.pet ? { type: opts.pet, x: -30, y: 20, t: 1.5, mode: 'follow', vx: 0, vy: 0, dir: 1, anim: 0, hit: {} } : null;
 
     this.hudT = 0;
@@ -158,7 +164,7 @@
     });
     if (this.weapons.length < ZN.MAX_WEAPON_SLOTS && !this.mods.pistolOnly) Object.keys(ZN.WEAPONS).forEach(function (id) {
       var d = ZN.WEAPONS[id];
-      if (d.evolved || !unlocked[id] || consumed[id] || g.findWeapon(id) || g.banished[id]) return;
+      if (d.evolved || !unlocked[id] || consumed[id] || g.findWeapon(id) || g.banished[id] || !ZN.weaponInEra(id, g.era)) return;
       pool.push({ kind: 'newWeapon', id: id, icon: d.icon, color: d.color, title: d.name, tag: 'NEW · ' + d.kind, desc: d.levels[0], wt: 8 });
     });
     this.passives.forEach(function (p) {
@@ -311,12 +317,13 @@
   // ----------------------------------------------------------- difficulty
   G.effLevel = function () { return this.waveIdx + Math.floor(this.tier / 4); };
   G.progress = function () { return this.bossPhase ? 1 : clamp(this.waveTime / this.waveDur, 0, 1); };
-  G.hpMult = function () { return (1 + 0.04 * this.tier) * (1 + 0.35 * this.waveIdx) * (1 + 0.3 * this.progress()) * (1 + ZN.NG.hp * this.ng); };
+  G.hpMult = function () { return (1 + 0.04 * this.tier) * (1 + 0.35 * this.waveIdx) * (1 + 0.3 * this.progress()) * (1 + ZN.NG.hp * this.ng) * (1 + Math.max(0, this.tier - 10) * 0.025); };
   G.dmgMult = function () { return (1 + 0.03 * this.tier + 0.06 * this.waveIdx) * (1 + ZN.NG.dmg * this.ng); };
 
   G.pickType = function () {
     var E = this.effLevel(), table = [['shambler', 10]], tr = this.trait;
     if (this.regional) table.push([this.regional, (E === 0 ? 1.2 : 2.5) * (this.regional === 'seagull' ? 0.3 : 1)]);
+    (this.eraDef.extras || []).forEach(function (x) { if (E >= x[2]) table.push([x[0], x[1]]); });
     if (E >= 1) table.push(['runner', 4]);
     if (E >= 2 || tr === 'brutes') table.push(['brute', tr === 'brutes' ? 3 + E * 0.2 : 1.5 + E * 0.1]);
     if (E >= 3 || tr === 'spitters') table.push(['spitter', tr === 'spitters' ? 2 : 1.2]);
@@ -334,13 +341,15 @@
       this.flocking = false;
       return lead;
     }
+    var role = type;
+    if (!defOverride && this.roleMap[type]) type = this.roleMap[type];
     var def = defOverride || ZN.ENEMIES[type];
     if (x === undefined) {
       var a = Math.random() * TAU;
       x = this.player.x + Math.cos(a) * this.spawnR; y = this.player.y + Math.sin(a) * this.spawnR;
     }
     var hp = def.hp * this.hpMult() * (hpScale || 1);
-    var e = { id: nextId++, type: type, def: def, x: x, y: y, hp: hp, maxHp: hp, r: def.r,
+    var e = { id: nextId++, type: type, role: role, def: def, x: x, y: y, hp: hp, maxHp: hp, r: def.r,
       spd: def.speed * rand(0.88, 1.12) * (1 + Math.min(this.tier, 20) * 0.01), atkT: 0, slowT: 0, freezeT: 0,
       burnT: 0, burnDps: 0, burnTick: 0, kbx: 0, kby: 0, flash: 0, hc: {}, shootT: rand(1.5, 3), anim: Math.random() * TAU,
       dmg: def.dmg * this.dmgMult(), chargeT: 0, windT: 0, specT: 4, cdx: 0, cdy: 0, dead: false, xpMul: 1,
@@ -515,10 +524,12 @@
       ev.target.spawnT = 0; ev.limit = 25;
     }
     this.wevent = ev;
-    var info = ZN.WAVE_EVENTS[type];
+    var info = this.eventInfo(type);
     this.banner(info.icon + ' ' + info.name.toUpperCase(), info.desc);
     ZN.Audio.play('wave');
   };
+
+  G.eventInfo = function (type) { return (this.eraDef.events && this.eraDef.events[type]) || ZN.WAVE_EVENTS[type]; };
 
   G.updateWaveEvent = function (dt) {
     var ev = this.wevent, p = this.player, g = this;
@@ -609,8 +620,21 @@
       ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2; ctx.setLineDash([8, 10]);
       ctx.beginPath(); ctx.moveTo(v.x, v.y); ctx.lineTo(d.x, d.y); ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle = 'rgba(90,255,138,0.25)'; ctx.beginPath(); ctx.arc(d.x, d.y, 26, 0, TAU); ctx.fill();
-      ctx.font = '18px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('🏥', d.x, d.y + 6);
+      ctx.font = '18px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(this.era === 'medieval' ? '🏘️' : '🏥', d.x, d.y + 6);
       ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.dir);
+      if (this.era === 'medieval') {
+        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(-20, -9, 42, 22);
+        ctx.fillStyle = v.flash > 0 ? '#ffb0b0' : '#8a5a2a'; ctx.fillRect(-20, -11, 30, 22);
+        ctx.fillStyle = '#e0c060'; ctx.beginPath(); ctx.ellipse(-5, 0, 14, 9, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#3a2a1a'; ctx.beginPath(); ctx.arc(-12, -12, 4, 0, TAU); ctx.arc(-12, 12, 4, 0, TAU); ctx.arc(4, -12, 4, 0, TAU); ctx.arc(4, 12, 4, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#6a4a2a'; ctx.fillRect(10, -2, 10, 4);
+        ctx.fillStyle = '#7a5a3a'; ctx.beginPath(); ctx.ellipse(26, 0, 9, 5, 0, 0, TAU); ctx.fill(); ctx.beginPath(); ctx.arc(34, 0, 4, 0, TAU); ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = '#300'; ctx.fillRect(v.x - 22, v.y - 24, 44, 5);
+        ctx.fillStyle = '#5aff8a'; ctx.fillRect(v.x - 22, v.y - 24, 44 * clamp(v.hp / v.maxHp, 0, 1), 5);
+        if (!v.moving) { ctx.fillStyle = '#ffffff'; ctx.font = 'bold 10px sans-serif'; ctx.fillText('STAY CLOSE', v.x, v.y - 30); }
+        return;
+      }
       ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(-20, -9, 42, 22);
       ctx.fillStyle = v.flash > 0 ? '#ffb0b0' : '#f4f4f0'; ctx.fillRect(-22, -12, 44, 24);
       ctx.fillStyle = '#2a4a8a'; ctx.fillRect(12, -10, 8, 20);
@@ -622,8 +646,15 @@
       ctx.fillStyle = '#5aff8a'; ctx.fillRect(v.x - 22, v.y - 24, 44 * clamp(v.hp / v.maxHp, 0, 1), 5);
       if (!v.moving) { ctx.fillStyle = '#ffffff'; ctx.font = 'bold 10px sans-serif'; ctx.fillText('STAY CLOSE', v.x, v.y - 30); }
     } else if (ev.type === 'crates') {
+      var med = this.era === 'medieval';
       ev.crates.forEach(function (c) {
         if (c.taken) return;
+        if (med) {
+          ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(c.x, c.y + 10, 12, 4, 0, 0, TAU); ctx.fill();
+          ctx.fillStyle = '#8a5a2a'; ctx.beginPath(); ctx.ellipse(c.x, c.y, 11, 13, 0, 0, TAU); ctx.fill();
+          ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(c.x - 11, c.y - 5); ctx.lineTo(c.x + 11, c.y - 5); ctx.moveTo(c.x - 11, c.y + 5); ctx.lineTo(c.x + 11, c.y + 5); ctx.stroke();
+          return;
+        }
         ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(c.x - 10, c.y - 8); ctx.lineTo(c.x - 16, c.y - 34); ctx.moveTo(c.x + 10, c.y - 8); ctx.lineTo(c.x + 16, c.y - 34); ctx.stroke();
         ctx.fillStyle = '#e8e0d0'; ctx.beginPath(); ctx.arc(c.x, c.y - 34, 18, Math.PI, 0); ctx.fill();
@@ -658,7 +689,7 @@
   // Lieutenant mini boss, picked per county and wave
   G.spawnMini = function (title) {
     if (this.mini && !this.mini.dead) { if (title) this.banner(title, this.mini.def.name + ' still leads the horde!'); return this.mini; }
-    var keys = Object.keys(ZN.MINIBOSSES), h = (this.seed + this.miniIdx * 2654435761) >>> 0;
+    var keys = this.eraDef.minis || Object.keys(ZN.MINIBOSSES), h = (this.seed + this.miniIdx * 2654435761) >>> 0;
     var key = keys[h % keys.length], md = ZN.MINIBOSSES[key], base = ZN.ENEMIES.boss;
     this.miniIdx++;
     var def = { name: md.name, hp: base.hp * 0.32, speed: md.speed || 44, dmg: Math.min(28, 10 + this.tier * 0.8), r: 24, xp: 25, color: md.color, skin: md.skin,
@@ -729,7 +760,7 @@
     opts = opts || {};
     var dmg = base * this.stat.might, crit = Math.random() < this.stat.crit + (opts.crit || 0);
     if (crit) dmg *= opts.critMul || 2;
-    if (this.waveMods.shielded && (e.type === 'brute' || e.def.mini || e.def.elite)) dmg *= 0.75;
+    if (this.waveMods.shielded && (e.role === 'brute' || e.def.mini || e.def.elite)) dmg *= 0.75;
     if (this.stat.lastStand && this.player.hp < this.stat.maxHp * 0.3) dmg *= 1.5;
     if (e.def.armorPct) dmg *= 1 - e.def.armorPct;
     e.hp -= dmg; e.flash = 0.08;
@@ -752,7 +783,7 @@
     e.dead = true; this.kills++;
     if (e.def.regional) { this.regionalKills = this.regionalKills || {}; this.regionalKills[e.type] = true; }
     var def = e.def;
-    this.dropGem(e.x, e.y, def.xp * (1 + this.waveIdx * 0.08) * e.xpMul * (this.trait === 'night' ? 1.15 : 1) * (this.trait === 'brutes' && e.type === 'brute' ? 1.6 : 1));
+    this.dropGem(e.x, e.y, def.xp * (1 + this.waveIdx * 0.08) * e.xpMul * (this.trait === 'night' ? 1.15 : 1) * (this.trait === 'brutes' && e.role === 'brute' ? 1.6 : 1));
     if (Math.random() < (this.trait === 'treasure' ? 0.09 : 0.035) * this.stat.luck || def.elite) this.pickups.push({ type: 'coin', x: e.x + rand(-8, 8), y: e.y + rand(-8, 8), v: def.elite ? 10 : (1 + (Math.random() * 3 | 0)) });
     if (!this.mods.noHeal && Math.random() < 0.004 * this.stat.luck) this.pickups.push({ type: 'heal', x: e.x, y: e.y });
     if (Math.random() < 0.0015 * this.stat.luck) this.pickups.push({ type: 'magnet', x: e.x, y: e.y });
@@ -777,8 +808,8 @@
     if (ZN.Sprites.has(e.type) && !def.boss) this.effects.push({ kind: 'corpse', e: e, x: e.x, y: e.y, t: 0, T: 0.7, side: Math.cos(e.dir || 0) < 0 ? -1 : 1 });
     this.emit(e.x, e.y - e.r * 0.3, def.boss ? 30 : 6, def.ranged || def.explodes ? '#9be03a' : '#7a1414', 120, 0.5, def.boss ? 5 : 3);
     if (!this.victory && !def.boss && !def.mini) {
-      if (this.waveMods.splitters && (e.type === 'shambler' || e.type === 'brute')) {
-        for (var si = 0; si < (e.type === 'brute' ? 3 : 2); si++) { var sc = this.spawnEnemy('crawler', e.x + rand(-10, 10), e.y + rand(-10, 10)); sc.spawnT = 0; sc.xpMul = 0.25; }
+      if (this.waveMods.splitters && (e.role === 'shambler' || e.role === 'brute')) {
+        for (var si = 0; si < (e.role === 'brute' ? 3 : 2); si++) { var sc = this.spawnEnemy('crawler', e.x + rand(-10, 10), e.y + rand(-10, 10)); sc.spawnT = 0; sc.xpMul = 0.25; }
       }
       if (this.waveMods.volatile && !def.explodes && Math.random() < 0.15) {
         this.effects.push({ kind: 'boom', x: e.x, y: e.y, r: 48, t: 0, T: 0.35, color: '#ff7a2a' });
@@ -793,6 +824,7 @@
       var p = this.player, dx = p.x - e.x, dy = p.y - e.y;
       if (dx * dx + dy * dy < br * br) this.hurtPlayer(e.dmg * (this.trait === 'bloaters' ? 1.4 : 2));
       if (dx * dx + dy * dy < 250 * 250) this.juice(5, 25);
+      if (def.gas && !this.victory) this.hazards.push({ x: e.x, y: e.y, r: 52, life: 3.5, delay: 0.3, tick: 0, dmg: e.dmg * 0.4, color: '#a8b040' });
       ZN.Audio.play('boom', 120);
     }
     this.effects.push({ kind: 'splat', x: e.x, y: e.y, r: e.r, t: 0, T: 0.5, color: def.color });
@@ -1053,7 +1085,7 @@
         e.shootT -= dt;
         if (e.shootT <= 0 && d < 280 && e.freezeT <= 0 && this.enemyShots.length < 25) {
           e.shootT = rand(3.5, 5);
-          this.enemyShots.push({ x: e.x, y: e.y, vx: ux * 125, vy: uy * 125, r: 6, dmg: e.dmg, life: 3, color: '#9be03a' });
+          this.enemyShots.push({ x: e.x, y: e.y, vx: ux * (e.def.shotColor ? 145 : 125), vy: uy * (e.def.shotColor ? 145 : 125), r: e.def.shotColor ? 4 : 6, dmg: e.def.shotColor ? e.dmg * 0.75 : e.dmg, life: 3, color: e.def.shotColor || '#9be03a' });
         }
       }
       if (e.def.boss) {
@@ -1420,6 +1452,7 @@
       if (pl.tickT <= 0) {
         pl.tickT = pl.tick;
         this.queryEnemies(pl.x, pl.y, pl.r, function (e) { g.damage(e, pl.dmg, { burn: pl.burn, slow: pl.slow, freeze: pl.freeze, silent: true }); });
+        if (pl.heal) { var hx = this.player.x - pl.x, hy = this.player.y - pl.y; if (hx * hx + hy * hy < pl.r * pl.r) this.player.hp = Math.min(this.stat.maxHp, this.player.hp + 1.5); }
       }
       if (pl.life > 0) out.push(pl);
     }
@@ -1607,7 +1640,7 @@
   };
 
   // ---------------------------------------------------------- terrain
-  var SOLID = { tree: 13, stone: 12, hay: 13, car: 17, tractor: 15, bin: 10, barrel: 10, grave: 8, wall: 0 };
+  var SOLID = { tree: 13, stone: 12, hay: 13, car: 17, tractor: 15, bin: 10, barrel: 10, grave: 8, wall: 0, cart: 16, stocks: 10, well: 14, tent: 18, gallows: 8 };
   // Decor in a 120px tile (shared by drawing and collision). Spawn area and landmark stay clear.
   G.decorAt = function (tx, ty) {
     if (Math.abs(tx) <= 2 && ty >= -4 && ty <= 1) return null;
@@ -1711,6 +1744,27 @@
       case 'heather':
         ctx.fillStyle = '#8a5a9a';
         for (var j = 0; j < 7; j++) { var a = j * 0.9 + h % 5; ctx.beginPath(); ctx.arc(x + Math.cos(a) * 10, y + Math.sin(a) * 6, 4, 0, TAU); ctx.fill(); } break;
+      case 'cart':
+        ctx.fillStyle = '#7a5030'; ctx.fillRect(x - 18, y - 9, 30, 16);
+        ctx.fillStyle = '#d8b850'; ctx.beginPath(); ctx.ellipse(x - 3, y - 9, 14, 7, 0, Math.PI, TAU); ctx.fill();
+        ctx.fillStyle = '#3a2a1a'; ctx.beginPath(); ctx.arc(x - 12, y + 8, 5, 0, TAU); ctx.arc(x + 6, y + 8, 5, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x + 12, y - 2, 12, 3); break;
+      case 'stocks':
+        ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - 3, y - 4, 6, 14); ctx.fillRect(x - 14, y - 10, 28, 8);
+        ctx.fillStyle = '#2a1a0a'; ctx.beginPath(); ctx.arc(x - 7, y - 6, 2, 0, TAU); ctx.arc(x, y - 6, 2.5, 0, TAU); ctx.arc(x + 7, y - 6, 2, 0, TAU); ctx.fill(); break;
+      case 'well':
+        ctx.fillStyle = '#8a8478'; ctx.beginPath(); ctx.ellipse(x, y, 13, 9, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#1a2a3a'; ctx.beginPath(); ctx.ellipse(x, y - 1, 9, 6, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - 12, y - 22, 3, 20); ctx.fillRect(x + 9, y - 22, 3, 20);
+        ctx.fillStyle = '#7a3a2a'; ctx.beginPath(); ctx.moveTo(x - 16, y - 20); ctx.lineTo(x, y - 30); ctx.lineTo(x + 16, y - 20); ctx.fill(); break;
+      case 'tent':
+        ctx.fillStyle = ['#c8202e', '#e8e0d0', '#2a5aa0'][h % 3]; ctx.beginPath(); ctx.moveTo(x - 20, y + 8); ctx.lineTo(x, y - 22); ctx.lineTo(x + 20, y + 8); ctx.fill();
+        ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.moveTo(x - 4, y + 8); ctx.lineTo(x, y - 6); ctx.lineTo(x + 4, y + 8); ctx.fill();
+        ctx.fillStyle = '#ffd23a'; ctx.fillRect(x - 1, y - 30, 2, 9); break;
+      case 'gallows':
+        ctx.fillStyle = '#5a3a1a'; ctx.fillRect(x - 2, y - 34, 4, 42); ctx.fillRect(x - 2, y - 34, 20, 4);
+        ctx.strokeStyle = '#c8b890'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + 15, y - 30); ctx.lineTo(x + 15, y - 18); ctx.stroke();
+        ctx.beginPath(); ctx.arc(x + 15, y - 15, 3, 0, TAU); ctx.stroke(); break;
       case 'tractor':
         ctx.fillStyle = '#8a2a1f'; ctx.fillRect(x - 14, y - 10, 26, 16);
         ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(x - 9, y + 7, 7, 0, TAU); ctx.arc(x + 10, y + 8, 5, 0, TAU); ctx.fill(); break;
@@ -1793,6 +1847,7 @@
       ZN.Sprites.enemy(ctx, e, this.time);
       if (def.accessory) ZN.drawAccessory(this, ctx, e);
       else if (def.regional) ZN.drawRegionalFlair(this, ctx, e);
+      else if (def.flair) ZN.drawEraFlair(this, ctx, e);
       else if (this.season && !def.elite && e.spawnT <= 0) ZN.drawSeasonHat(this, ctx, e, this.season);
       if (e.freezeT > 0 || this.buffs.freeze > 0) { ctx.fillStyle = 'rgba(160,220,255,0.45)'; ctx.beginPath(); ctx.arc(e.x, e.y, r + 3, 0, TAU); ctx.fill(); }
       else if (e.slowT > 0) { ctx.strokeStyle = 'rgba(140,210,255,0.8)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.9, r, r * 0.4, 0, 0, TAU); ctx.stroke(); }
@@ -1881,7 +1936,11 @@
     }
     var ang = Math.atan2(pr.vy, pr.vx);
     ctx.save(); ctx.translate(pr.x, pr.y); ctx.rotate(ang);
-    if (pr.kind === 'rocket') {
+    if (pr.kind === 'axe') {
+      ctx.rotate(this.time * 16);
+      ctx.fillStyle = '#6a4a2a'; ctx.fillRect(-10, -1.5, 18, 3);
+      ctx.fillStyle = '#c8ccd2'; ctx.beginPath(); ctx.moveTo(4, -2); ctx.quadraticCurveTo(12, -10, 12, 0); ctx.quadraticCurveTo(12, 10, 4, 2); ctx.fill();
+    } else if (pr.kind === 'rocket') {
       ctx.fillStyle = pr.color; ctx.fillRect(-6, -2.5, 12, 5);
       ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(6, -2.5); ctx.lineTo(10, 0); ctx.lineTo(6, 2.5); ctx.fill();
       ctx.fillStyle = 'rgba(255,210,80,' + (0.5 + Math.random() * 0.5) + ')'; ctx.beginPath(); ctx.arc(-8, 0, 3 + Math.random() * 2, 0, TAU); ctx.fill();

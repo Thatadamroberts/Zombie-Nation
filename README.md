@@ -4,6 +4,12 @@ A Vampire Survivors-style Android game set across a zombie-overrun United Kingdo
 
 ## Gameplay
 
+- **Three eras**: Britain falls in three eras, each with its own UK map, liberation progress, enemies, bosses, weapons and currency. Pick one from the Campaign button.
+  - ⚔️ **Medieval Britain (AD 1348)** pays 🪙 Groats. Its Blacksmith & Apothecary sells Might, Vitality, Armour, Recovery and Second Wind. You fight Plague Shamblers, Skeletons, Plague Rats, armoured Ghoul Knights, Zombie Archers, gas-leaving Plague Bearers and Wraiths. Bosses are the Black Knight, Plague King, Wyrm, Witchfinder General, Pictish Warlord and Druid of Mona. Lieutenants are the Executioner, Mad Monk, Tax Collector and Jester.
+  - Medieval weapons: Longsword (evolves to Caliburn), Longbow (Arrow Storm), Flail (Morning Star Maelstrom), Trebuchet (Siege Engine), Holy Water (Sanctified Ground) and Throwing Axes (Whirlwind of Axes). The elemental swords, Crossbow, Halberd, Bagpipes and Stinking Bishop appear in both Medieval and Modern.
+  - 🏙️ **Modern Britain** pays 💷 Pounds (your existing progress). Its shop sells Swiftness, Haste, Duplicator, Greed and the reroll, skip and banish charges.
+  - 🚀 **Future Britain** pays 💠 Credits. It is coming soon; until then its stock (Reach, Endurance, Attraction, Fortune, Growth) is sold in Modern.
+  - Everything you buy works in every era. Deeper counties scale up, so you need to grow strong in more than one era to push on. Survivors, pets and skill trees are paid in the selected era's currency, and weapon mastery in the weapon's own era currency. New Game+ unlocks once every available era is fully liberated.
 - **Campaign map**: 69 counties and regions across England, Wales, Scotland and Northern Ireland (with ferry links to Northern Ireland). Your first mission can be anywhere. After that you can only attack counties that border one you've already liberated.
 - **Waves**: each new county has one more wave than the last (capped at 20). Each wave is 40 seconds (the first mission's single wave is 60s), and you finish by killing the horde boss. Zombies get tougher with every wave and every county you take.
 - **Enemies**: Shamblers, Runners, Crawler swarms, Brutes, acid-spitting Spitters, exploding Bloaters, Red Kites, and treasure-carrying Elites.

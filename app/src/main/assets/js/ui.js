@@ -5,6 +5,10 @@
   var Save = ZN.Save, game = null, selected = null, current = 'title', prevScreen = 'title', bannerTimer = null;
   var SVGNS = 'http://www.w3.org/2000/svg';
 
+  function cur(era) { return Save.cur(era); }
+  function refreshCurrency() {
+    document.querySelectorAll('.cur-ic').forEach(function (n) { n.textContent = cur(); });
+  }
   function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; }
   function fmt(n) { return Math.floor(n).toLocaleString('en-GB'); }
 
@@ -14,7 +18,9 @@
     document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('active'); });
     $('screen-' + name).classList.add('active');
     current = name;
+    refreshCurrency();
     if (name === 'map') renderMap();
+    if (name === 'era') renderEras();
     if (name === 'shop') renderShop();
     if (name === 'armoury') renderArmoury();
     if (name === 'survivors') renderSurvivors();
@@ -79,7 +85,7 @@
     ZN.EVENT_SHOP.forEach(function (it) {
       var owned = it.id === 'weapon' && d.items[se.weapon];
       var row = el('div', 'item');
-      row.appendChild(el('div', 'ico', it.id === 'weapon' ? w.icon : it.id === 'coins' ? '💰' : '⭐'));
+      row.appendChild(el('div', 'ico', it.id === 'weapon' ? w.icon : it.id === 'coins' ? cur() : '⭐'));
       var b2 = el('div', 'body');
       b2.appendChild(el('div', 'name', it.id === 'weapon' ? 'Keep ' + w.name + ' forever' : it.name));
       b2.appendChild(el('div', 'desc', it.desc));
@@ -90,7 +96,7 @@
         if (owned || tk < it.cost) return;
         d.tokens[se.id] = tk - it.cost;
         if (it.id === 'weapon') { d.items[se.weapon] = true; toast(w.icon + ' ' + w.name + ' is yours to keep!'); }
-        if (it.id === 'coins') { d.coins += 1500; toast('💰 +1,500 coins'); }
+        if (it.id === 'coins') { d.coins += 1500; toast(cur() + ' +1,500 ' + ZN.ERAS[d.era].curName); }
         if (it.id === 'xp') { var lv = Save.addAccountXp(2000); toast('⭐ +2,000 survivor XP' + (lv.length ? ' · Level ' + d.accLevel + '!' : '')); }
         Save.save(); ZN.Audio.play('coin'); renderEvent();
       };
@@ -132,6 +138,7 @@
     $('ngplus-btn').textContent = '♾️ Begin New Game+ ' + ((d.ngPlus || 0) + 1);
     $('ng-badge').classList.toggle('hidden', !d.ngPlus);
     $('ng-badge').textContent = 'NG+' + d.ngPlus;
+    $('era-badge').textContent = ZN.ERAS[d.era].icon + ' ' + ZN.ERAS[d.era].short;
     var dl = Save.daily();
     $('daily-badge').classList.toggle('hidden', dl.done);
     var tc = Save.tierCounts();
@@ -223,7 +230,8 @@
       badges[c.id].textContent = th ? '⚠ ' + d.threats[c.id] : '';
     });
     $('map-coins').textContent = fmt(d.coins);
-    $('map-level').innerHTML = 'Survivor Level ' + d.accLevel + (d.ngPlus ? '<span class="ng-tag">NG+' + d.ngPlus + '</span>' : '');
+    $('map-level').innerHTML = ZN.ERAS[d.era].icon + ' Survivor Level ' + d.accLevel + (d.ngPlus ? '<span class="ng-tag">NG+' + d.ngPlus + '</span>' : '');
+    $('screen-map').className = 'screen active era-' + d.era;
     $('map-progress').textContent = Save.clearedCount() + ' / ' + M.counties.length + ' liberated';
     $('map-xpbar').style.width = Math.min(100, d.accXp / ZN.accountXpFor(d.accLevel) * 100) + '%';
     var focus = selected || d.lastCounty;
@@ -249,10 +257,10 @@
     tag.className = 'tag ' + st;
     tag.textContent = threat ? 'UNDER ATTACK' : cleared ? 'LIBERATED' : avail ? 'ATTACKABLE' : 'OVERRUN';
     var tier = threat ? Save.clearedCount() : cleared ? waves - 1 : Save.clearedCount();
-    var boss = ZN.BOSSES[ZN.bossFor(c)], seP = ZN.currentSeason();
+    var boss = ZN.BOSSES[ZN.bossFor(c, Save.data.era)], seP = ZN.currentSeason();
     var threatLvl = ['Low', 'Moderate', 'High', 'Severe', 'Extreme', 'Apocalyptic'][Math.min(5, Math.floor(tier / 4))];
     var neighbours = c.adj.map(function (n) { return ZN.MAP.byId[n].short; }).join(', ');
-    var trait = ZN.TRAITS[ZN.traitFor(c)], local = ZN.ENEMIES[ZN.REGIONAL[c.region]];
+    var trait = ZN.TRAITS[ZN.traitFor(c)], local = ZN.ERAS[Save.data.era].regional ? ZN.ENEMIES[ZN.REGIONAL[c.region]] : null;
     var info = '<b>' + waves + '</b> wave' + (waves > 1 ? 's' : '') + ' + <b>' + boss.name + '</b> · Threat: <b>' + threatLvl + '</b>' +
       '<br>' + trait.icon + ' <b>' + trait.name + '</b>: ' + trait.desc +
       (local ? '<br>🧟 Local horde: <b>' + local.name + 's</b>' : '') +
@@ -277,7 +285,10 @@
     list.innerHTML = '';
     $('shop-coins').textContent = fmt(d.coins);
     list.appendChild(el('div', 'section-h', 'Spend coins from missions'));
-    ZN.SHOP.forEach(function (item) {
+    var eraD = ZN.ERAS[d.era];
+    list.lastChild.innerHTML = eraD.icon + ' ' + eraD.shopName + ' · paid in ' + eraD.curName;
+    var others = ZN.SHOP.filter(function (it) { return it.era !== d.era; });
+    ZN.SHOP.filter(function (it) { return it.era === d.era; }).forEach(function (item) {
       var rank = d.shop[item.id] || 0, maxed = rank >= item.max, cost = ZN.shopCost(item, rank);
       var row = el('div', 'item');
       row.appendChild(el('div', 'ico', item.icon));
@@ -288,7 +299,7 @@
       for (var i = 0; i < item.max; i++) pips.appendChild(el('div', 'pip' + (i < rank ? ' on' : '')));
       body.appendChild(pips);
       row.appendChild(body);
-      var b = el('button', 'btn buy' + (maxed ? '' : ' primary'), maxed ? 'MAX' : '💰 ' + fmt(cost));
+      var b = el('button', 'btn buy' + (maxed ? '' : ' primary'), maxed ? 'MAX' : cur() + ' ' + fmt(cost));
       b.disabled = maxed || d.coins < cost;
       b.onclick = function () {
         if (d.coins < cost || maxed) return;
@@ -297,6 +308,37 @@
       };
       row.appendChild(b);
       list.appendChild(row);
+    });
+    list.appendChild(el('div', 'section-h', 'Sold in other eras · works everywhere'));
+    others.forEach(function (item) {
+      var rank = d.shop[item.id] || 0, e2 = ZN.ERAS[item.era];
+      var row = el('div', 'item shop-other');
+      row.appendChild(el('div', 'ico', item.icon));
+      var body = el('div', 'body');
+      body.appendChild(el('div', 'name', item.name + ' <span style="color:var(--muted);font-weight:600">· ' + rank + '/' + item.max + '</span>'));
+      body.appendChild(el('div', 'desc', item.desc + ' per rank · ' + (e2.available ? 'buy in ' + e2.icon + ' ' + e2.short + ' (' + e2.curName + ')' : '🔒 ' + e2.short + ' era coming soon')));
+      row.appendChild(body); list.appendChild(row);
+    });
+  }
+
+  // -------------------------------------------------------- era select
+  function renderEras() {
+    var list = $('era-list'), d = Save.data;
+    list.innerHTML = '';
+    ZN.ERA_IDS.forEach(function (id) {
+      var e = ZN.ERAS[id], cleared = Save.clearedIn(id), card = el('div', 'era-card era-' + id + '-bg' + (d.era === id ? ' current' : '') + (e.available ? '' : ' locked'));
+      card.innerHTML = '<div class="eh"><div class="ei">' + e.icon + '</div><div><div class="ey">' + e.year + '</div><h2>' + e.name + '</h2></div></div>' +
+        '<div class="ed">' + e.desc + '</div>' +
+        (e.available ? '<div class="estat"><span>🗺️ ' + cleared + ' / ' + ZN.COUNTIES.length + ' liberated</span><span>' + e.cur + ' ' + fmt(Save.coinsIn(id)) + ' ' + e.curName + '</span></div>' +
+          '<div class="bar" style="margin-top:8px"><div class="bar-fill xp" style="width:' + (cleared / ZN.COUNTIES.length * 100) + '%"></div></div>' +
+          '<div class="ed" style="margin-bottom:0">' + e.shopName + ': ' + ZN.SHOP.filter(function (it) { return it.era === id; }).map(function (it) { return it.icon; }).join(' ') + '</div>'
+          : '<div class="estat"><span>🔒 Coming soon</span></div>');
+      if (e.available) card.onclick = function () {
+        ZN.Audio.play('click');
+        if (d.era !== id) { if (selected && paths[selected]) paths[selected].classList.remove('selected'); Save.switchEra(id); Save.save(); selected = null; renderMap.scrolled = false; $('county-panel').classList.add('hidden'); }
+        show('map');
+      };
+      list.appendChild(card);
     });
   }
 
@@ -328,7 +370,7 @@
         if (r >= pk.max) b = el('button', 'btn buy', pk.max > 1 ? 'MAX' : 'OWNED');
         else {
           var cost = ZN.skillCost(tier, r);
-          b = el('button', 'btn buy primary', '💰 ' + fmt(cost));
+          b = el('button', 'btn buy primary', cur() + ' ' + fmt(cost));
           b.disabled = !open || d.coins < cost;
           b.onclick = function () {
             if (!open || d.coins < cost) return;
@@ -375,7 +417,7 @@
         b = el('button', 'btn buy', '🔒'); b.disabled = true;
         body.appendChild(el('div', 'reward', 'Unlock: ' + Save.tierLabel(ac, ch.achievementTier || 1) + ' (' + ac.desc.replace('{n}', fmt(tg)) + ')'));
       }
-      else { b = el('button', 'btn buy primary', '💰 ' + fmt(ch.cost)); b.disabled = d.coins < ch.cost; }
+      else { b = el('button', 'btn buy primary', cur() + ' ' + fmt(ch.cost)); b.disabled = d.coins < ch.cost; }
       b.onclick = function () {
         if (sel) return;
         if (!owned) { if (d.coins < ch.cost) return; d.coins -= ch.cost; d.owned[ch.id] = true; ZN.Audio.play('coin'); }
@@ -409,7 +451,7 @@
         var pl = (d.petLevels || {})[id] || 0;
         var tr = el('div', 'train-row', '<span class="stars">' + stars(pl, ZN.PET_MAX) + '</span><span class="tr-info">Power +' + Math.round((ZN.petMult(pl) - 1) * 100) + '%</span>');
         if (pl < ZN.PET_MAX) {
-          var tc = ZN.petCost(pl), tb = el('button', 'btn small train', 'Train 💰 ' + fmt(tc));
+          var tc = ZN.petCost(pl), tb = el('button', 'btn small train', 'Train ' + cur() + ' ' + fmt(tc));
           tb.disabled = d.coins < tc;
           tb.onclick = function (ev) {
             ev.stopPropagation();
@@ -423,7 +465,7 @@
       }
       row.appendChild(body);
       var b;
-      if (buyable) { b = el('button', 'btn buy primary', '💰 ' + fmt(pet.cost)); b.disabled = d.coins < pet.cost; }
+      if (buyable) { b = el('button', 'btn buy primary', cur() + ' ' + fmt(pet.cost)); b.disabled = d.coins < pet.cost; }
       else { b = el('button', 'btn buy', sel ? 'Chosen' : have ? 'Select' : '🔒'); b.disabled = !have; }
       b.onclick = function () {
         if (buyable) { if (d.coins < pet.cost) return; d.coins -= pet.cost; d.pets[id] = true; ZN.Audio.play('coin'); }
@@ -474,15 +516,16 @@
 
   // -------------------------------------------------------------- daily
   function renderDaily() {
-    var body = $('daily-body'), dl = Save.daily(), c = dl.county, dse = ZN.currentSeason(), boss = ZN.BOSSES[dse ? dse.boss : ZN.bossFor(c)];
-    $('daily-coins').textContent = fmt(Save.data.coins);
+    var body = $('daily-body'), dl = Save.daily(), c = dl.county, dse = ZN.currentSeason(), boss = ZN.BOSSES[dse ? dse.boss : ZN.bossFor(c, dl.era)], dE = ZN.ERAS[dl.era];
+    $('daily-coins').textContent = fmt(Save.coinsIn(dl.era));
+    document.querySelectorAll('#screen-daily .cur-ic').forEach(function (n) { n.textContent = dE.cur; });
     var html = '<div class="daily-card"><div class="section-h" style="margin:0 0 6px">' + new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) + '</div>' +
-      '<h2>' + c.name + '</h2><div class="desc" style="color:var(--muted)">' + ZN.DAILY_WAVES + ' waves + ' + boss.name + '<br>' +
+      '<h2>' + c.name + '</h2><div class="desc" style="color:var(--muted)">' + dE.icon + ' ' + dE.name + '<br>' + ZN.DAILY_WAVES + ' waves + ' + boss.name + '<br>' +
       ZN.TRAITS[ZN.traitFor(c)].icon + ' ' + ZN.TRAITS[ZN.traitFor(c)].name + '</div></div>' +
       '<div class="daily-card"><div class="section-h" style="margin:0 0 4px">Today\'s twists</div>' +
       dl.mods.map(function (m) { var md = ZN.DAILY_MODS[m]; return '<div class="mod"><div class="mi">' + md.icon + '</div><div><b>' + md.name + '</b><div class="desc" style="color:var(--muted)">' + md.desc + '</div></div></div>'; }).join('') +
       '</div><div class="daily-card">' + (dl.done ? '✅ <b>Completed today!</b> Come back tomorrow for a new challenge. You can still replay it for coins and XP.' :
-      '🏆 Reward for winning: <b>💰 ' + ZN.DAILY_REWARD + ' coins</b> (once per day). Your campaign map is not affected.') + '</div>';
+      '🏆 Reward for winning: <b>' + dE.cur + ' ' + ZN.DAILY_REWARD + ' ' + dE.curName + '</b> (once per day). Your campaign map is not affected.') + '</div>';
     body.innerHTML = html;
     var b = el('button', 'btn big primary', dl.done ? 'Play Again' : 'Start Challenge');
     b.onclick = function () { ZN.Audio.play('click'); startMission(c.id, dl); };
@@ -493,7 +536,7 @@
   function renderArmoury() {
     var list = $('armoury-list'), unlocked = Save.unlockedSet(), lvl = Save.data.accLevel;
     list.innerHTML = '';
-    $('arm-level').textContent = 'Lv ' + lvl + ' · 💰 ' + fmt(Save.data.coins);
+    $('arm-level').textContent = 'Lv ' + lvl + ' · ' + ZN.availableEras().map(function (e) { return cur(e) + ' ' + fmt(Save.coinsIn(e)); }).join(' ');
     var nextLvl = null;
     for (var l in ZN.UNLOCKS) if (+l > lvl) { nextLvl = +l; break; }
     if (nextLvl) list.appendChild(el('div', 'item', '<div class="body"><div class="name">Next unlock at Survivor Level ' + nextLvl + '</div><div class="desc">' +
@@ -503,17 +546,18 @@
     Object.keys(ZN.WEAPONS).forEach(function (id) {
       var d = ZN.WEAPONS[id];
       if (d.evolved) return;
-      var row = entry(d.icon, d.color, d.name, d.kind + ' · ' + d.levels[0], unlocked[id], id);
+      var eraTag = d.season ? '' : ' · ' + ZN.weaponEras(id).map(function (e) { return ZN.ERAS[e].icon; }).join('');
+      var row = entry(d.icon, d.color, d.name + eraTag, d.kind + ' · ' + d.levels[0], unlocked[id], id);
       if (unlocked[id]) {
         var m = (Save.data.mastery || {})[id] || 0, body = row.querySelector('.body');
         var tr = el('div', 'train-row', '<span class="stars">' + stars(m, ZN.MASTERY_MAX) + '</span><span class="tr-info">Mastery +' + Math.round((ZN.masteryMult(m) - 1) * 100) + '% dmg' +
           (m >= ZN.MASTERY_MAX ? ', starts Lv 2' : '') + '</span>');
         if (m < ZN.MASTERY_MAX) {
-          var mc = ZN.masteryCost(m), mb = el('button', 'btn small train', 'Train 💰 ' + fmt(mc));
-          mb.disabled = Save.data.coins < mc;
+          var mc = ZN.masteryCost(m), mEra = ZN.weaponHomeEra(id), mb = el('button', 'btn small train', 'Train ' + cur(mEra) + ' ' + fmt(mc));
+          mb.disabled = Save.coinsIn(mEra) < mc || !ZN.ERAS[mEra].available;
           mb.onclick = function () {
-            if (Save.data.coins < mc) return;
-            Save.data.coins -= mc; Save.data.mastery = Save.data.mastery || {}; Save.data.mastery[id] = m + 1; Save.save();
+            if (!Save.spend(mEra, mc)) return;
+            Save.data.mastery = Save.data.mastery || {}; Save.data.mastery[id] = m + 1; Save.save();
             ZN.Audio.play('levelup'); toast(d.icon + ' ' + d.name + ' mastery ' + (m + 1) + '!'); renderArmoury();
           };
           tr.appendChild(mb);
@@ -587,13 +631,15 @@
     game = new ZN.Game($('game-canvas'), {
       county: c, waves: waves, tier: tier, replay: cleared, defend: defend, character: Save.data.character,
       pet: Save.data.pet, daily: !!daily, mods: daily ? daily.mods : [], ng: daily ? 0 : (Save.data.ngPlus || 0),
+      era: daily ? daily.era : Save.data.era,
       onHud: updateHud, onBanner: showBanner, onBuff: function (g) { updateBuffs.sig = null; updateBuffs(g); },
       onLevelUp: showLevelUp, onChest: showChest, onEnd: endMission
     });
     ZN.game = game;
     updateHud(game);
+    $('hud-cur').textContent = cur(game.era);
     game.start();
-    ZN.Music.play('battle');
+    ZN.Music.play(game.eraDef.music || 'battle');
   }
 
   function updateBuffs(g) {
@@ -620,7 +666,7 @@
   function updateEventHud(g) {
     var box = $('hud-event'), ev = g.wevent;
     if (!ev) { box.classList.add('hidden'); return; }
-    var info = ZN.WAVE_EVENTS[ev.type], left = Math.max(0, Math.ceil(ev.limit - ev.t)), txt = info.icon + ' ' + info.name, pct = null;
+    var info = g.eventInfo(ev.type), left = Math.max(0, Math.ceil(ev.limit - ev.t)), txt = info.icon + ' ' + info.name, pct = null;
     if (ev.type === 'convoy') { txt += ' · ' + Math.max(0, Math.round(ev.van.hp)) + '% HP' + (ev.van.moving ? '' : ' · stay close!'); pct = ev.van.hp; }
     if (ev.type === 'crates') txt += ' · ' + ev.crates.filter(function (c) { return c.taken && !c.lost; }).length + '/3';
     if (ev.type === 'hold') { pct = ev.prog / ev.need * 100; txt += ev.inside ? ' · holding' : ' · get in the zone'; }
@@ -761,7 +807,7 @@
     bonus = Math.round(bonus * ngMul);
     var coins = Math.round(r.coins * ngMul) + bonus + dailyBonus;
     var accXp = Math.round((r.xp + 30 * r.wavesDone + (firstClear ? 50 * g.waves : 0)) * (isDaily ? 1 : 1 + ZN.NG.reward * (Save.data.ngPlus || 0)));
-    d.coins += coins;
+    Save.addCoins(g.era, coins);
     d.stats.kills += r.kills; d.stats.runs++;
     if (r.win) d.stats.wins++;
     d.stats.bestLevel = Math.max(d.stats.bestLevel, r.level);
@@ -789,10 +835,10 @@
       ['Waves cleared', r.wavesDone + ' / ' + g.waves],
       ['Zombies slain', fmt(r.kills)],
       ['Level reached', r.level],
-      ['Coins collected', '💰 ' + fmt(r.coins)]
+      ['Coins collected', cur(g.era) + ' ' + fmt(r.coins)]
     ];
-    if (bonus) rows.push([firstClear ? 'Liberation bonus' : defending ? 'Defence bonus' : 'Replay bonus', '💰 ' + fmt(bonus)]);
-    if (dailyBonus) rows.push(['Daily challenge', '💰 ' + fmt(dailyBonus)]);
+    if (bonus) rows.push([firstClear ? 'Liberation bonus' : defending ? 'Defence bonus' : 'Replay bonus', cur(g.era) + ' ' + fmt(bonus)]);
+    if (dailyBonus) rows.push(['Daily challenge', cur(g.era) + ' ' + fmt(dailyBonus)]);
     if (r.eventsDone) rows.push(['Wave events completed', r.eventsDone]);
     if (r.season && r.tokens) { var sz = ZN.SEASONS.filter(function (x) { return x.id === r.season; })[0]; rows.push([sz.tokenName + ' collected', sz.token + ' ' + r.tokens]); }
     rows.push(['Survivor XP', '+' + fmt(accXp)]);
@@ -864,6 +910,7 @@
     if (current === 'title') return false;
     if (current === 'map' && selected) { paths[selected].classList.remove('selected'); selected = null; $('county-panel').classList.add('hidden'); return true; }
     if (current === 'skills') { show('survivors'); return true; }
+    if (current === 'map') { show('era'); return true; }
     show(current === 'shop' || current === 'armoury' || current === 'survivors' ? prevScreen : 'title');
     return true;
   };

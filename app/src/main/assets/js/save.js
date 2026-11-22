@@ -8,6 +8,7 @@
       character: 'tommy', owned: { tommy: true }, threats: {}, music: true,
       achievements: {}, achTiers: null, pets: {}, pet: null, items: {}, daily: { date: '', won: false }, tokens: {},
       relics: {}, relicEquip: [], relicsMigrated: false, ngPlus: 0,
+      era: 'modern', eras: null,
       stats: { kills: 0, runs: 0, wins: 0, bestLevel: 0, evolved: {}, bosses: {}, dailies: 0, noHitWins: 0, defended: 0,
         bossKills: 0, timePlayed: 0, coinsEarned: 0, buffs: 0, tokens: 0, eventsDone: 0 },
       seenIntro: false };
@@ -51,6 +52,9 @@
     // Converts the old one-off achievements into tiers already earned (no rewards paid twice)
     migrate: function () {
       var d = Save.data;
+      // Eras: the active era's map/threats/purse live at the top level; the others are parked in d.eras.
+      // An existing save becomes the Modern era.
+      if (!d.eras) { d.era = 'modern'; d.eras = { medieval: Save.blankEra(), future: Save.blankEra() }; }
       // Relics for bosses beaten before relics existed
       if (!d.relicsMigrated) {
         d.relicsMigrated = true; d.relics = d.relics || {}; d.relicEquip = d.relicEquip || [];
@@ -120,7 +124,7 @@
       return { got: got, total: total };
     },
     rewardText: function (r) {
-      if (r.coins) return '💰 ' + r.coins + ' coins';
+      if (r.coins) return ZN.ERAS[Save.data.era].cur + ' ' + r.coins + ' ' + ZN.ERAS[Save.data.era].curName;
       if (r.character) { var c = ZN.characterById(r.character); return c.icon + ' New survivor: ' + c.name; }
       if (r.pet) return ZN.PETS[r.pet].icon + ' Companion: ' + ZN.PETS[r.pet].name;
       if (r.item) return ZN.PASSIVES[r.item].icon + ' New item: ' + ZN.PASSIVES[r.item].name;
@@ -140,7 +144,8 @@
       var keys = Object.keys(ZN.DAILY_MODS), mods = [];
       while (mods.length < 2) { var k = keys[Math.floor(rnd() * keys.length)]; if (mods.indexOf(k) < 0) mods.push(k); }
       var done = Save.data.daily.date === key && Save.data.daily.won;
-      return { key: key, county: county, mods: mods, done: done };
+      var eras = ZN.availableEras(), era = eras[Math.floor(rnd() * eras.length)];
+      return { key: key, county: county, mods: mods, done: done, era: era };
     },
 
     // ----- backup codes
@@ -163,6 +168,33 @@
       } catch (e) { return 'That code could not be read.'; }
     },
 
+    // ----- eras
+    blankEra: function () { return { cleared: {}, threats: {}, lastCounty: null, coins: 0 }; },
+    // Live slot for an era (the active era is backed by the top-level fields)
+    slot: function (era) {
+      var d = Save.data;
+      if (!era || era === d.era) return { cleared: d.cleared, threats: d.threats, lastCounty: d.lastCounty, coins: d.coins };
+      return d.eras[era] || (d.eras[era] = Save.blankEra());
+    },
+    switchEra: function (era) {
+      var d = Save.data;
+      if (!ZN.ERAS[era] || era === d.era) return;
+      d.eras[d.era] = { cleared: d.cleared, threats: d.threats, lastCounty: d.lastCounty, coins: d.coins };
+      var s = d.eras[era] || Save.blankEra();
+      d.cleared = s.cleared || {}; d.threats = s.threats || {}; d.lastCounty = s.lastCounty || null; d.coins = s.coins || 0;
+      delete d.eras[era];
+      d.era = era;
+    },
+    coinsIn: function (era) { return Save.slot(era).coins || 0; },
+    addCoins: function (era, n) { if (!era || era === Save.data.era) Save.data.coins += n; else Save.slot(era).coins = (Save.slot(era).coins || 0) + n; },
+    spend: function (era, n) {
+      if (Save.coinsIn(era) < n) return false;
+      Save.addCoins(era, -n); return true;
+    },
+    clearedIn: function (era) { return Object.keys(Save.slot(era).cleared || {}).length; },
+    totalCleared: function () { return ZN.ERA_IDS.reduce(function (a, e) { return a + Save.clearedIn(e); }, 0); },
+    cur: function (era) { return ZN.ERAS[era || Save.data.era].cur; },
+
     // ----- relics
     relicSlots: function () { return ZN.relicSlots(Save.data.ngPlus); },
     grantRelic: function (bossKey) {
@@ -180,11 +212,13 @@
     },
 
     // ----- New Game+
-    canNewGamePlus: function () { return Save.clearedCount() >= ZN.COUNTIES.length; },
+    // New Game+ needs every available era liberated, and resets every era's map
+    canNewGamePlus: function () { return ZN.availableEras().every(function (e) { return Save.clearedIn(e) >= ZN.COUNTIES.length; }); },
     startNewGamePlus: function () {
       var d = Save.data;
       d.ngPlus = (d.ngPlus || 0) + 1;
       d.cleared = {}; d.threats = {}; d.lastCounty = null;
+      for (var e in d.eras) { d.eras[e].cleared = {}; d.eras[e].threats = {}; d.eras[e].lastCounty = null; }
     },
     ngTierBonus: function () { return (Save.data.ngPlus || 0) * ZN.NG.tier; },
 

@@ -239,3 +239,29 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .perk .pips { margin-top: 4px; display: flex; gap: 3px; }
 .skill-btn { margin-top: 6px; font-size: 12px; padding: 6px 10px; }
 .tree-link { margin-left: 8px; color: #7dff8a; font-weight: 800; font-size: 12px; }
+
+/* Era select */
+.era-card { border: 2px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 14px; cursor: pointer; position: relative; overflow: hidden; }
+.era-card:active { transform: scale(0.98); }
+.era-card.current { border-color: #ffd23a; box-shadow: 0 0 14px rgba(255,210,58,0.3); }
+.era-card.locked { opacity: 0.55; cursor: default; }
+.era-card .eh { display: flex; align-items: center; gap: 12px; }
+.era-card .ei { font-size: 44px; }
+.era-card h2 { margin: 0; font-size: 21px; }
+.era-card .ey { color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: 1px; }
+.era-card .ed { color: #d8dce2; font-size: 13px; margin: 8px 0; }
+.era-card .estat { display: flex; justify-content: space-between; font-size: 13px; font-weight: 800; }
+.era-medieval-bg { background: linear-gradient(135deg, #3a2a14, #1d1a14); }
+.era-modern-bg { background: linear-gradient(135deg, #1a2a3a, #14181d); }
+.era-future-bg { background: linear-gradient(135deg, #1a1440, #0a1a2a); }
+/* Medieval parchment map */
+#screen-map.era-medieval { background: #e4d6b0; }
+#screen-map.era-medieval .sea { fill: #b8c4b0; }
+#screen-map.era-medieval .land-outline { stroke: #6a4a2a; opacity: 0.8; }
+#screen-map.era-medieval .county { stroke: #8a6a3a; }
+#screen-map.era-medieval .county.locked { fill: #b8a47a; }
+#screen-map.era-medieval .county.cleared { fill: #6a8a3a; }
+#screen-map.era-medieval .county-label { fill: #3a2a14; stroke: rgba(240,228,190,0.8); }
+#screen-map.era-medieval .county-label.locked { fill: #5a4a2a; }
+#screen-map.era-medieval #map-legend { background: #c8b48a; color: #3a2a14; }
+.shop-other { opacity: 0.7; }

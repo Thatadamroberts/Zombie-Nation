@@ -21,7 +21,7 @@
         <button class="btn big season-btn hidden" id="season-btn" data-go="event"></button>
         <div id="season-next" class="season-next"></div>
         <button class="btn big ngplus-btn hidden" id="ngplus-btn">♾️ Begin New Game+</button>
-        <button class="btn big primary" data-go="map">Campaign <span id="ng-badge" class="badge hidden"></span></button>
+        <button class="btn big primary" data-go="era">Campaign <span id="era-badge" class="badge"></span> <span id="ng-badge" class="badge hidden"></span></button>
         <button class="btn big daily-btn" data-go="daily">📅 Daily Challenge <span id="daily-badge" class="badge hidden">NEW</span></button>
         <button class="btn big" data-go="survivors">Survivors</button>
         <button class="btn big" data-go="shop">Upgrades</button>
@@ -41,15 +41,25 @@
     </div>
   </section>
 
+  <!-- Era select -->
+  <section id="screen-era" class="screen">
+    <header class="topbar">
+      <button class="btn icon" data-go="title">‹</button>
+      <div class="screen-title">Choose Your Era</div>
+      <div></div>
+    </header>
+    <div class="scroll-list" id="era-list"></div>
+  </section>
+
   <!-- Campaign map -->
   <section id="screen-map" class="screen">
     <header class="topbar">
-      <button class="btn icon" data-go="title">‹</button>
+      <button class="btn icon" data-go="era">‹</button>
       <div class="acct">
         <div class="acct-line"><span id="map-level">Level 1</span><span id="map-progress">0 / 69 liberated</span></div>
         <div class="bar"><div id="map-xpbar" class="bar-fill xp"></div></div>
       </div>
-      <div class="coins"><span>💰</span><span id="map-coins">0</span></div>
+      <div class="coins"><span class="cur-ic">💰</span><span id="map-coins">0</span></div>
     </header>
     <div id="map-scroll"><div id="map-holder"></div></div>
     <div id="map-legend">
@@ -71,7 +81,7 @@
     <header class="topbar">
       <button class="btn icon" data-go="back">‹</button>
       <div class="screen-title">Permanent Upgrades</div>
-      <div class="coins"><span>💰</span><span id="shop-coins">0</span></div>
+      <div class="coins"><span class="cur-ic">💰</span><span id="shop-coins">0</span></div>
     </header>
     <div class="scroll-list" id="shop-list"></div>
   </section>
@@ -81,7 +91,7 @@
     <header class="topbar">
       <button class="btn icon" data-go="back">‹</button>
       <div class="screen-title">Survivors</div>
-      <div class="coins"><span>💰</span><span id="surv-coins">0</span></div>
+      <div class="coins"><span class="cur-ic">💰</span><span id="surv-coins">0</span></div>
     </header>
     <div class="scroll-list" id="survivor-list"></div>
   </section>
@@ -101,7 +111,7 @@
     <header class="topbar">
       <button class="btn icon" data-go="survivors">‹</button>
       <div class="screen-title" id="skills-title">Skill Tree</div>
-      <div class="coins"><span>💰</span><span id="skills-coins">0</span></div>
+      <div class="coins"><span class="cur-ic">💰</span><span id="skills-coins">0</span></div>
     </header>
     <div class="scroll-list" id="skills-body"></div>
   </section>
@@ -131,7 +141,7 @@
     <header class="topbar">
       <button class="btn icon" data-go="title">‹</button>
       <div class="screen-title">Daily Challenge</div>
-      <div class="coins"><span>💰</span><span id="daily-coins">0</span></div>
+      <div class="coins"><span class="cur-ic">💰</span><span id="daily-coins">0</span></div>
     </header>
     <div class="scroll-list" id="daily-body"></div>
   </section>
@@ -164,6 +174,8 @@
       <p>Zombies sometimes drop glowing power-ups: Double Weapons, Double Speed, Invincible (trample everything!), Double XP and Deep Freeze. Elites always drop one. Walk over them to grab them before they fade.</p>
       <p>Companions can never be hurt, and each gives you a bonus: the Vampire Bat heals you with every bite, the Owl boosts XP, the Black Cat brings luck and the Hedgehog gives you thorns.</p>
       <p>Buy new survivors with coins: each starts with a different weapon and perks. Every region has its own horde boss, from Nessie in the Highlands to the Stonehenge Druid. Watch for red warning circles: get out before the slam lands!</p>
+      <h3>Three eras</h3>
+      <p>Britain falls in three eras, each with its own map, enemies, bosses, weapons and currency: Medieval Britain (Groats), Modern Britain (Pounds) and, coming soon, Future Britain (Credits). Each era's shop sells a different family of upgrades, and everything you buy works in every era, so you will need to travel between eras to grow strong enough for the deepest counties.</p>
       <h3>Local hordes</h3>
       <p>Every region has its own zombies: Market Traders lobbing fruit in the cities, kilted Highland Berserkers, tunnelling Pit Miners up North, charging Rams in Wales, seagull flocks on the South West coast, Bog Bodies in the Fens, armoured Hard Hat Workers in the Midlands, Morris Dancer troupes in the South East and wailing Banshees in Northern Ireland. See them all in the Armoury.</p>
       <h3>Skill trees</h3>
@@ -201,7 +213,7 @@
       <div class="hud-row">
         <div class="hud-wave"><div id="hud-wave">Wave 1/1</div><div class="bar thin"><div id="hud-wavebar" class="bar-fill wave"></div></div></div>
         <div class="hud-stat">💀 <span id="hud-kills">0</span></div>
-        <div class="hud-stat">💰 <span id="hud-coins">0</span></div>
+        <div class="hud-stat"><span id="hud-cur">💰</span> <span id="hud-coins">0</span></div>
         <button class="btn icon pause" id="btn-pause">II</button>
       </div>
       <div id="hud-event" class="hud-event hidden"></div>
