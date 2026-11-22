@@ -1,0 +1,41 @@
+name: Publish to GitHub Pages
+
+# Publishes the web version of the game (the same files the Android app wraps) so it can be played at https://<owner>.github.io/<repo>/.
+# Deploys only from the default branch, which is what the github-pages
+# environment allows. Enable it once: Settings → Pages → Source: GitHub Actions.
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Collect the game files
+        run: |
+          mkdir _site
+          cp -r app/src/main/assets/. _site/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
