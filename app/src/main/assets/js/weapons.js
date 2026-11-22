@@ -247,7 +247,7 @@
           t.fireT = s.fire * g.stat.cooldown;
           var aa = Math.atan2(tg.y - t.y, tg.x - t.x), v = 520;
           g.projectiles.push({ x: t.x, y: t.y - 10, vx: Math.cos(aa) * v, vy: Math.sin(aa) * v, r: 4, dmg: s.dmg, pierce: 1, life: 0.8, maxLife: 0.8,
-            hit: {}, kind: 'bullet', color: '#9be03a', kb: 15, silent: true });
+            hit: {}, kind: w.id === 'gnome' || w.id === 'gnomeArmy' ? 'bullet' : 'laser', color: w.id === 'gnome' || w.id === 'gnomeArmy' ? '#9be03a' : '#9ad0ff', kb: 15, silent: true });
           t.recoil = 0.1;
         } else t.fireT = 0.2;
       }
@@ -349,7 +349,89 @@
     ZN.Audio.play('slash', 100);
   }
 
+  // ---------------- Future weapons
+  function laser(g, w, s, dt, evo) {
+    if (w.t > 0) { w.t -= dt; return; }
+    var p = g.player, tgt = g.nearestEnemy(p.x, p.y, 440);
+    if (!tgt && !evo) return;
+    w.t = s.cd * g.stat.cooldown;
+    var n = s.amount + g.stat.amount, base = tgt ? Math.atan2(tgt.y - p.y, tgt.x - p.x) : facing(g), col = evo ? '#bff8ff' : '#3af0ff';
+    for (var i = 0; i < n; i++) shoot(g, base + (i - (n - 1) / 2) * 0.09, { speed: 640, r: 4, dmg: s.dmg, pierce: s.pierce, life: 0.8, kind: 'laser', color: col, kb: 12, silent: true });
+    if (s.ring) { w.ringA = (w.ringA || 0) + 0.3; for (var k = 0; k < s.ring; k++) shoot(g, w.ringA + k * TAU / s.ring, { speed: 520, r: 4, dmg: s.dmg * 0.6, pierce: s.pierce, life: 0.7, kind: 'laser', color: '#ff9af0', kb: 8, silent: true }); }
+    ZN.Audio.play('zap', 90);
+  }
+  function plasma(g, w, s, dt, evo) {
+    if (w.t > 0) { w.t -= dt; return; }
+    var p = g.player, tgt = g.nearestEnemy(p.x, p.y, 400);
+    if (!tgt) return;
+    w.t = s.cd * g.stat.cooldown;
+    var n = s.amount + g.stat.amount, base = Math.atan2(tgt.y - p.y, tgt.x - p.x), col = evo ? '#ffd23a' : '#c05aff';
+    for (var i = 0; i < n; i++) shoot(g, base + (i - (n - 1) / 2) * 0.3, { speed: 260, r: evo ? 11 : 8, dmg: s.dmg * 0.5, pierce: 1, life: 1.6, kind: 'orb', color: col, kb: 20, silent: true,
+      explode: { r: s.radius, dmg: s.dmg, burn: s.burn, color: col } });
+    if (evo) { var tg2 = tgt; setTimeoutGame(g, 0.6, function () { if (!tg2.dead) g.pools.push({ x: tg2.x, y: tg2.y, r: s.radius * 0.6 * g.stat.area, life: 2.5 * g.stat.duration, tick: 0.4, tickT: 0, dmg: s.dmg * 0.15, burn: 0, color: '#ffb03a' }); }); }
+    ZN.Audio.play('shoot', 120);
+  }
+  function rail(g, w, s, dt, evo) {
+    if (w.t > 0) { w.t -= dt; return; }
+    var p = g.player, tgt = g.nearestEnemy(p.x, p.y, 460);
+    if (!tgt) return;
+    w.t = s.cd * g.stat.cooldown;
+    var n = s.amount + g.stat.amount, base = Math.atan2(tgt.y - p.y, tgt.x - p.x), L = s.len * g.stat.area, W = s.width * g.stat.area;
+    for (var i = 0; i < n; i++) {
+      var a = base + (i - (n - 1) / 2) * (evo ? 0.25 : 0.18), x2 = p.x + Math.cos(a) * L, y2 = p.y + Math.sin(a) * L;
+      beam(g, p.x, p.y - 4, x2, y2, W, function (e) { g.damage(e, s.dmg, { kb: evo ? 160 : 90, kx: Math.cos(a), ky: Math.sin(a), silent: true, color: '#c8fff0' }); });
+      g.effects.push({ kind: 'rail', x1: p.x, y1: p.y - 4, x2: x2, y2: y2, w: W, t: 0, T: 0.3, color: evo ? '#c8fff0' : '#7affd8' });
+    }
+    g.shake = Math.max(g.shake, evo ? 4 : 2);
+    ZN.Audio.play('zap', 60);
+  }
+  function wells(g, w, s, dt, evo) {
+    var p = g.player;
+    w.wells = w.wells || [];
+    w.t -= dt;
+    if (w.t <= 0) {
+      w.t = s.cd * g.stat.cooldown;
+      for (var k = 0; k < s.amount + g.stat.amount; k++) {
+        var e = g.randomEnemyOnScreen(), x, y;
+        if (e) { x = e.x; y = e.y; } else { var a = Math.random() * TAU; x = p.x + Math.cos(a) * 140; y = p.y + Math.sin(a) * 140; }
+        w.wells.push({ x: x, y: y, life: s.life * g.stat.duration, max: s.life * g.stat.duration, tick: 0 });
+      }
+      ZN.Audio.play('zap', 200);
+    }
+    var R = s.radius * g.stat.area, keep = [];
+    for (var i = 0; i < w.wells.length; i++) {
+      var wl = w.wells[i];
+      wl.life -= dt; wl.tick -= dt;
+      var hitNow = wl.tick <= 0; if (hitNow) wl.tick = 0.35;
+      g.queryEnemies(wl.x, wl.y, R, function (o) {
+        if (o.def.boss) return;
+        var dx = wl.x - o.x, dy = wl.y - o.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
+        if (d > 8) { var pull = Math.min(d, s.pull * dt); o.x += dx / d * pull; o.y += dy / d * pull; }
+        if (hitNow) g.damage(o, s.dmg, { silent: true, color: '#b0a0ff' });
+      });
+      if (wl.life > 0) { keep.push(wl); continue; }
+      if (s.collapse) {
+        g.queryEnemies(wl.x, wl.y, R * 0.8, function (o) { g.damage(o, s.collapse, { kb: 140, kx: o.x - wl.x, ky: o.y - wl.y, silent: true }); });
+        g.effects.push({ kind: 'ring', x: wl.x, y: wl.y, r: 6, maxR: R, t: 0, T: 0.4, color: '#b0a0ff' });
+        g.shake = Math.max(g.shake, 4); ZN.Audio.play('boom', 90);
+      }
+    }
+    w.wells = keep; w.R = R;
+  }
+
   ZN.WEAPON_LOGIC = {
+    laserPistol: function (g, w, s, dt) { laser(g, w, s, dt, false); },
+    photonStorm: function (g, w, s, dt) { laser(g, w, s, dt, true); },
+    plasmaCannon: function (g, w, s, dt) { plasma(g, w, s, dt, false); },
+    sunCannon: function (g, w, s, dt) { plasma(g, w, s, dt, true); },
+    railgun: function (g, w, s, dt) { rail(g, w, s, dt, false); },
+    massDriver: function (g, w, s, dt) { rail(g, w, s, dt, true); },
+    droneSwarm: function (g, w, s, dt) { gnomes(g, w, s, dt, true); },
+    hiveMind: function (g, w, s, dt) { gnomes(g, w, s, dt, true); },
+    gravityWell: function (g, w, s, dt) { wells(g, w, s, dt, false); },
+    singularity: function (g, w, s, dt) { wells(g, w, s, dt, true); },
+    naniteCloud: function (g, w, s, dt) { aura(g, w, s, dt); },
+    greyGoo: function (g, w, s, dt) { aura(g, w, s, dt); },
     longsword: function (g, w, s, dt) { longsword(g, w, s, dt, false); },
     caliburn: function (g, w, s, dt) { longsword(g, w, s, dt, true); },
     longbow: function (g, w, s, dt) { longbow(g, w, s, dt); },
@@ -674,7 +756,34 @@
     }
   }
 
+  function drawDrones(g, ctx, w) {
+    if (!w.turrets) return;
+    w.turrets.forEach(function (t) {
+      var x = t.x, y = t.y - 18 + Math.sin(g.time * 6 + t.slot) * 3;
+      ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(t.x, t.y + 6, 7, 2.5, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#c8d0dc'; ctx.beginPath(); ctx.ellipse(x, y, 8, 4, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#3a4250'; ctx.fillRect(x - 12, y - 2, 24, 2);
+      ctx.fillStyle = 'rgba(200,220,255,0.5)'; ctx.beginPath(); ctx.ellipse(x - 12, y - 2, 4, 1.2, g.time * 30, 0, TAU); ctx.ellipse(x + 12, y - 2, 4, 1.2, -g.time * 30, 0, TAU); ctx.fill();
+      ctx.fillStyle = t.recoil > 0 ? '#ffffff' : '#3af0ff'; ctx.beginPath(); ctx.arc(x, y + 1, 2.2, 0, TAU); ctx.fill();
+    });
+  }
+  function drawWells(g, ctx, w) {
+    if (!w.wells || !w.R) return;
+    w.wells.forEach(function (wl) {
+      var a = Math.max(0, Math.min(1, wl.life * 2, (wl.max - wl.life) * 4));
+      var gr = ctx.createRadialGradient(wl.x, wl.y, 2, wl.x, wl.y, w.R);
+      gr.addColorStop(0, 'rgba(10,0,30,' + 0.9 * a + ')'); gr.addColorStop(0.35, 'rgba(110,80,255,' + 0.35 * a + ')'); gr.addColorStop(1, 'rgba(110,80,255,0)');
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(wl.x, wl.y, w.R, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(190,170,255,' + 0.7 * a + ')'; ctx.lineWidth = 2;
+      for (var k = 0; k < 3; k++) { ctx.beginPath(); ctx.arc(wl.x, wl.y, w.R * (0.25 + 0.22 * k), g.time * (4 - k) + k * 2, g.time * (4 - k) + k * 2 + 2.2); ctx.stroke(); }
+    });
+  }
+
   ZN.WEAPON_DRAW = {
+    droneSwarm: drawDrones, hiveMind: drawDrones,
+    gravityWell: drawWells, singularity: drawWells,
+    naniteCloud: function (g, ctx, w) { drawAura(g, ctx, w, 'rgba(90,255,160,0.10)', 'rgba(122,255,160,0.6)'); },
+    greyGoo: function (g, ctx, w) { drawAura(g, ctx, w, 'rgba(184,248,200,0.14)', 'rgba(200,255,210,0.7)'); },
     flail: drawFlail, morningStar: drawFlail,
     landMine: drawMines, minefield: drawMines,
     lighthouse: function (g, ctx, w) { drawBeams(g, ctx, w, false); },

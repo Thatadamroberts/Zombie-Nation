@@ -265,3 +265,14 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 #screen-map.era-medieval .county-label.locked { fill: #5a4a2a; }
 #screen-map.era-medieval #map-legend { background: #c8b48a; color: #3a2a14; }
 .shop-other { opacity: 0.7; }
+
+/* Future neon map */
+#screen-map.era-future { background: #0a0e1a; }
+#screen-map.era-future .sea { fill: #070b16; }
+#screen-map.era-future .land-outline { stroke: #3af0ff; opacity: 0.7; }
+#screen-map.era-future .county { stroke: #3af0ff; stroke-opacity: 0.6; }
+#screen-map.era-future .county.locked { fill: #1a2030; }
+#screen-map.era-future .county.cleared { fill: #1a7a6a; }
+#screen-map.era-future .county-label { fill: #d8f8ff; stroke: rgba(10,14,26,0.85); }
+#screen-map.era-future .county-label.locked { fill: #6a7a9a; }
+#screen-map.era-future #map-legend { background: #121a2c; color: #bfefff; }

@@ -580,7 +580,8 @@ ZN.SHOP = [
   { id: 'revival',  name: 'Second Wind',icon: '🪽', desc: 'Revive once per mission at 50% HP', max: 2, cost: 4000, growth: 3 },
   { id: 'reroll',   name: 'Reroll',     icon: '🔄', desc: '+1 level-up reroll per mission', max: 5, cost: 400 },
   { id: 'skip',     name: 'Skip',       icon: '⏭️', desc: '+1 level-up skip per mission (gain XP instead)', max: 3, cost: 300 },
-  { id: 'banish',   name: 'Banish',     icon: '🚫', desc: '+1 banish per mission: remove an item from the pool', max: 3, cost: 600 }
+  { id: 'banish',   name: 'Banish',     icon: '🚫', desc: '+1 banish per mission: remove an item from the pool', max: 3, cost: 600 },
+  { id: 'crit',     name: 'Targeting',  icon: '🎯', desc: '+3% crit chance, +10% crit damage', max: 5, cost: 300 }
 ];
 ZN.shopCost = function (item, rank) { return Math.round(item.cost * Math.pow(item.growth || 1.6, rank) / 10) * 10; };
 
@@ -1096,9 +1097,24 @@ ZN.ERAS = {
   },
   future: {
     id: 'future', name: 'Future Britain', short: 'Future', icon: '🚀', cur: '💠', curName: 'Credits', year: 'AD 2188',
-    desc: 'Neon cities, cyber-zombies and rogue machines. Coming soon!',
-    available: false, startWeapon: 'pistol', shopName: 'Tech Lab', music: 'battle',
-    roles: {}, extras: [], regional: false, minis: null, events: {}
+    desc: 'Neon megacities, cyber-zombies and rogue machines.',
+    available: true, startWeapon: 'laserPistol', shopName: 'Tech Lab', music: 'battle_future',
+    roles: { shambler: 'cyber', runner: 'synth', crawler: 'nano', brute: 'mech', spitter: 'plasma', bloater: 'hoverBomber' },
+    extras: [['drone', 2, 2]],
+    regional: false,
+    ground: { ground: '#1c2230', alt: '#232a3a' }, grid: '#2a3a5a',
+    bossByRegion: { city: 'overmind', se: 'sentinel', east: 'replicant', mid: 'colossus', north: 'chromeDragon', wales: 'chromeDragon',
+      scot: 'mechaKraken', high: 'colossus', ni: 'mechaKraken', sw: 'mechaKraken' },
+    countyBoss: { london: 'overmind', kent: 'sentinel', cornwall: 'mechaKraken', gwynedd: 'chromeDragon', wmids: 'colossus', essex: 'replicant' },
+    minis: ['enforcer', 'hacker', 'medic', 'riotBot'],
+    landmarks: { se: 'arcology', sw: 'windfarm', east: 'windfarm', mid: 'megaspire', north: 'megaspire', wales: 'windfarm', scot: 'arcology', high: 'windfarm', city: 'ruinedBen', ni: 'arcology' },
+    decor: ['hovercar', 'pylon', 'holo', 'crate', 'hovercar', 'pylon'],
+    events: {
+      convoy: { name: 'Escort the Hover-Ambulance', icon: '🚑', desc: 'Stay close so it keeps flying, and keep the machines off it!' },
+      crates: { name: 'Grab the Supply Pods', icon: '📦', desc: 'Drop-pods are landing. Grab them before the scavenger bots do!' },
+      hold: { name: 'Defend the Shield Generator', icon: '🛡️', desc: 'Hold the generator until the city shield comes back online!' },
+      bounty: { name: 'Wanted: Rogue Android', icon: '🤖', desc: 'A golden android is fleeing with stolen data. Catch it!' }
+    }
   }
 };
 ZN.availableEras = function () { return ZN.ERA_IDS.filter(function (e) { return ZN.ERAS[e].available; }); };
@@ -1125,7 +1141,7 @@ ZN.weaponHomeEra = function (id) { return ZN.weaponEras(id)[0]; };
 (function () {
   var shopEra = { might: 'medieval', maxHp: 'medieval', armor: 'medieval', regen: 'medieval', revival: 'medieval',
     speed: 'modern', cooldown: 'modern', amount: 'modern', greed: 'modern', reroll: 'modern', skip: 'modern', banish: 'modern',
-    area: 'future', duration: 'future', magnet: 'future', luck: 'future', growth: 'future' };
+    area: 'future', duration: 'future', magnet: 'future', luck: 'future', growth: 'future', crit: 'future' };
   ZN.SHOP.forEach(function (it) { it.era = shopEra[it.id] || 'modern'; });
   // until an era ships, its stock is sold in Modern so nothing becomes unbuyable
   ZN.SHOP.forEach(function (it) { it.homeEra = it.era; if (!ZN.ERAS[it.era].available) it.era = 'modern'; });
@@ -1135,6 +1151,8 @@ ZN.weaponHomeEra = function (id) { return ZN.weaponEras(id)[0]; };
 ['iceSword', 'fireSword', 'elecSword', 'swordOfLight', 'crossbow', 'ballista', 'halberd', 'yeomansWrath', 'bagpipes', 'highlandLament', 'teslaBolts']
   .forEach(function (id) { ZN.WEAPONS[id].eras = ['medieval', 'modern']; });
 ['cheese', 'stilton'].forEach(function (id) { ZN.WEAPONS[id].eras = ['modern', 'medieval']; });
+['lightning', 'thunderstorm', 'flamethrower', 'dragonsBreath', 'landMine', 'minefield'].forEach(function (id) { ZN.WEAPONS[id].eras = ['modern', 'future']; });
+['teslaBolts'].forEach(function (id) { ZN.WEAPONS[id].eras = ['medieval', 'modern', 'future']; });
 
 // ---------------------------------------------------------------- Medieval weapons
 (function () {
@@ -1256,10 +1274,128 @@ ZN.ERAS.modern.minis = Object.keys(ZN.MINIBOSSES).filter(function (k) { return Z
   var lib = ZN.achievementById('liberator');
   lib.desc = 'Liberate {n} counties across all eras.';
   lib.value = function (x) { return ZN.Save.totalCleared(); };
-  lib.tiers = [[1, { coins: 50 }], [10, { coins: 200 }], [25, { coins: 500 }], [69, { coins: 1500 }], [138, { coins: 6000 }]];
-  ZN.achievementById('hunter').tiers = [[1, { coins: 100 }], [5, { coins: 300 }], [12, { coins: 1000 }], [20, { coins: 3000 }]];
-  ZN.achievementById('relics').tiers = [[3, { coins: 300 }], [8, { coins: 1000 }], [16, { coins: 2500 }], [24, { coins: 6000 }]];
+  lib.tiers = [[1, { coins: 50 }], [10, { coins: 200 }], [25, { coins: 500 }], [69, { coins: 1500 }], [138, { coins: 6000 }], [207, { coins: 15000 }]];
+  ZN.achievementById('hunter').tiers = [[1, { coins: 100 }], [5, { coins: 300 }], [12, { coins: 1000 }], [20, { coins: 3000 }], [30, { coins: 8000 }]];
+  ZN.achievementById('relics').tiers = [[3, { coins: 300 }], [8, { coins: 1000 }], [16, { coins: 2500 }], [24, { coins: 6000 }], [30, { coins: 12000 }]];
   ZN.ACHIEVEMENTS.push({ id: 'traveller', icon: '⏳', name: 'Time Traveller', desc: 'Liberate {n} counties in every available era.',
     value: function (x) { return Math.min.apply(null, ZN.availableEras().map(function (e) { return ZN.Save.clearedIn(e); })); },
     tiers: [[1, { coins: 500 }], [10, { coins: 2500 }], [69, { coins: 20000 }]] });
 })();
+
+
+// ---------------------------------------------------------------- Future weapons
+(function () {
+  var W = {
+    laserPistol: {
+      name: 'Laser Pistol', icon: '🔫', color: '#3af0ff', kind: 'Future · Ranged', max: 6, eras: ['future'],
+      levels: ['Rapid piercing laser bolts at the nearest machine.', '+1 bolt', '+5 damage', '+1 pierce', '-20% cooldown', '+1 bolt, +6 damage'],
+      stats: function (l) { return { dmg: 11 + (l >= 3 ? 5 : 0) + (l >= 6 ? 6 : 0), cd: l >= 5 ? 0.42 : 0.52, amount: 1 + (l >= 2 ? 1 : 0) + (l >= 6 ? 1 : 0), pierce: 2 + (l >= 4 ? 1 : 0) }; }
+    },
+    plasmaCannon: {
+      name: 'Plasma Cannon', icon: '🟣', color: '#c05aff', kind: 'Future · Explosive', max: 6, eras: ['future'],
+      levels: ['Slow plasma orbs that burst on impact.', '+10 damage', '+20% blast', '-20% cooldown', '+1 orb', '+15 damage, bigger blast'],
+      stats: function (l) { return { dmg: 30 + (l >= 2 ? 10 : 0) + (l >= 6 ? 15 : 0), cd: l >= 4 ? 1.5 : 1.9, amount: 1 + (l >= 5 ? 1 : 0), radius: 55 * (l >= 3 ? 1.2 : 1) * (l >= 6 ? 1.15 : 1) }; }
+    },
+    railgun: {
+      name: 'Railgun', icon: '⚡', color: '#7affd8', kind: 'Future · Beam', max: 6, eras: ['future'],
+      levels: ['A hypersonic slug that pierces everything in a line.', '+15 damage', 'Longer, wider beam', '-20% cooldown', '+1 beam', '+25 damage'],
+      stats: function (l) { return { dmg: 40 + (l >= 2 ? 15 : 0) + (l >= 6 ? 25 : 0), cd: l >= 4 ? 1.6 : 2.0, amount: 1 + (l >= 5 ? 1 : 0), len: 420 * (l >= 3 ? 1.2 : 1), width: 10 * (l >= 3 ? 1.3 : 1) }; }
+    },
+    droneSwarm: {
+      name: 'Drone Swarm', icon: '🛸', color: '#9ad0ff', kind: 'Future · Companions', max: 6, eras: ['future'],
+      levels: ['Combat drones circle you and zap nearby machines.', '+1 drone', '+5 damage', 'Faster firing', '+1 drone', '+8 damage'],
+      stats: function (l) { return { dmg: 9 + (l >= 3 ? 5 : 0) + (l >= 6 ? 8 : 0), count: 2 + (l >= 2 ? 1 : 0) + (l >= 5 ? 1 : 0), cd: 0.4, life: 9999, fire: l >= 4 ? 0.45 : 0.6 }; }
+    },
+    gravityWell: {
+      name: 'Gravity Well', icon: '🌀', color: '#8a7aff', kind: 'Future · Control', max: 6, eras: ['future'],
+      levels: ['Opens a vortex that drags the horde together and crushes it.', '+4 damage', '+20% pull radius', 'Lasts longer', '+1 well', '+6 damage, stronger pull'],
+      stats: function (l) { return { dmg: 7 + (l >= 2 ? 4 : 0) + (l >= 6 ? 6 : 0), cd: 4.0, amount: 1 + (l >= 5 ? 1 : 0), radius: 95 * (l >= 3 ? 1.2 : 1), life: 2.5 + (l >= 4 ? 1 : 0), pull: l >= 6 ? 150 : 100 }; }
+    },
+    naniteCloud: {
+      name: 'Nanite Cloud', icon: '🌫️', color: '#7affa0', kind: 'Future · Aura', max: 6, eras: ['future'],
+      levels: ['A swarm of nanites eats nearby machines and patches you up.', '+20% radius', '+3 damage', 'Repairs you faster', '+20% radius', '+5 damage'],
+      stats: function (l) { return { dmg: 5 + (l >= 3 ? 3 : 0) + (l >= 6 ? 5 : 0), tick: 0.45, radius: 70 * (l >= 2 ? 1.2 : 1) * (l >= 5 ? 1.2 : 1), heal: l >= 4 ? 0.5 : 0.25 }; }
+    },
+    // Future evolutions
+    photonStorm: { name: 'Photon Storm', icon: '🌠', color: '#bff8ff', kind: 'Evolved · Ranged', max: 1, evolved: true, eras: ['future'],
+      levels: ['Lasers fire in a full ring as well as at your target.'],
+      stats: function () { return { dmg: 20, cd: 0.4, amount: 4, pierce: 4, ring: 8 }; } },
+    sunCannon: { name: 'Sun Cannon', icon: '☀️', color: '#ffd23a', kind: 'Evolved · Explosive', max: 1, evolved: true, eras: ['future'],
+      levels: ['Miniature suns that explode and leave burning plasma behind.'],
+      stats: function () { return { dmg: 60, cd: 1.3, amount: 2, radius: 85, burn: 10 }; } },
+    massDriver: { name: 'Mass Driver', icon: '💥', color: '#c8fff0', kind: 'Evolved · Beam', max: 1, evolved: true, eras: ['future'],
+      levels: ['A fan of three colossal rail beams that knock the horde flying.'],
+      stats: function () { return { dmg: 80, cd: 1.4, amount: 3, len: 560, width: 18 }; } },
+    hiveMind: { name: 'Hive Mind', icon: '🐝', color: '#d0e8ff', kind: 'Evolved · Companions', max: 1, evolved: true, eras: ['future'],
+      levels: ['Six linked drones fire in perfect sync.'],
+      stats: function () { return { dmg: 18, count: 6, cd: 0.25, life: 9999, fire: 0.35 }; } },
+    singularity: { name: 'Singularity', icon: '🕳️', color: '#b0a0ff', kind: 'Evolved · Control', max: 1, evolved: true, eras: ['future'],
+      levels: ['A black hole drags everything in, then collapses in a huge blast.'],
+      stats: function () { return { dmg: 14, cd: 3.5, amount: 2, radius: 140, life: 3.2, pull: 190, collapse: 90 }; } },
+    greyGoo: { name: 'Grey Goo', icon: '🧫', color: '#b8f8c8', kind: 'Evolved · Aura', max: 1, evolved: true, eras: ['future'],
+      levels: ['A vast nanite tide that dissolves the horde and keeps you repaired.'],
+      stats: function () { return { dmg: 14, tick: 0.35, radius: 125, heal: 1 }; } }
+  };
+  for (var k in W) {
+    ZN.WEAPONS[k] = W[k];
+    if (W[k].evolved) {
+      (function (w) {
+        var base = w.stats; w.max = ZN.EVO_MAX;
+        w.levels = [w.levels[0], '+20% damage', '+20% damage, -10% cooldown', '+20% damage, +1 projectile', '+20% damage, -10% cooldown, +15% area'];
+        w.stats = function (l) {
+          var s = base(1), m = 1 + 0.2 * ((l || 1) - 1);
+          if (s.dmg) s.dmg *= m;
+          if (l >= 3 && s.cd) s.cd *= 0.9; if (l >= 5 && s.cd) s.cd *= 0.9;
+          if (l >= 4 && s.amount) s.amount += 1;
+          if (l >= 4 && s.count) s.count += 1;
+          if (l >= 5 && s.radius) s.radius *= 1.15;
+          return s;
+        };
+      })(W[k]);
+    }
+  }
+  ZN.EVOLUTIONS.push(
+    { from: ['laserPistol'], passive: 'ammoBelt', into: 'photonStorm' },
+    { from: ['plasmaCannon'], passive: 'unionCape', into: 'sunCannon' },
+    { from: ['railgun'], passive: 'fullEnglish', into: 'massDriver' },
+    { from: ['droneSwarm'], passive: 'pocketWatch', into: 'hiveMind' },
+    { from: ['gravityWell'], passive: 'fuelCan', into: 'singularity' },
+    { from: ['naniteCloud'], passive: 'tea', into: 'greyGoo' }
+  );
+  ZN.UNLOCKS[1].push('laserPistol');
+  ZN.UNLOCKS[2].push('plasmaCannon');
+  ZN.UNLOCKS[3].push('droneSwarm');
+  ZN.UNLOCKS[4].push('railgun');
+  ZN.UNLOCKS[5].push('naniteCloud');
+  ZN.UNLOCKS[7].push('gravityWell');
+})();
+
+// ---------------------------------------------------------------- Future enemies
+ZN.ENEMIES.cyber       = { name: 'Cyber Zombie', hp: 13, speed: 40, dmg: 8, r: 12, xp: 1, color: '#3a4a5a', skin: '#9ab0b8', metal: '#7a8a9a', pants: '#2a3040', flair: 'cyber' };
+ZN.ENEMIES.synth       = { name: 'Synth Runner', hp: 8, speed: 82, dmg: 6, r: 10, xp: 1, color: '#d8dce4', skin: '#e8ecf0', pants: '#3af0ff', flair: 'synth' };
+ZN.ENEMIES.nano        = { name: 'Nano Swarm', hp: 5, speed: 100, dmg: 4, r: 8, xp: 1, color: '#2a3a3a', skin: '#5affc8', shape: 'nano', flyer: true };
+ZN.ENEMIES.mech        = { name: 'Mech Brute', hp: 85, speed: 28, dmg: 18, r: 20, xp: 5, color: '#4a5260', skin: '#8a96a8', metal: '#c8d0dc', pants: '#3a4250', armorPct: 0.3, flair: 'mech' };
+ZN.ENEMIES.plasma      = { name: 'Plasma Spitter', hp: 18, speed: 36, dmg: 6, r: 12, xp: 3, color: '#3a2a5a', skin: '#a890d8', ranged: true, flair: 'plasma', shotColor: '#c05aff' };
+ZN.ENEMIES.hoverBomber = { name: 'Hover Bomber', hp: 30, speed: 34, dmg: 8, r: 15, xp: 3, color: '#5a4a2a', skin: '#ffb03a', explodes: true, shape: 'hoverBomber', flyer: true };
+ZN.ENEMIES.drone       = { name: 'Rogue Drone', hp: 14, speed: 52, dmg: 7, r: 11, xp: 3, color: '#2a3040', skin: '#ff3a5a', shape: 'drone', flyer: true };
+
+// ---------------------------------------------------------------- Future bosses + relics
+ZN.BOSSES.overmind     = { name: 'The Overmind', hpMul: 1.1, speed: 38, r: 38, color: '#2a1a4a', skin: '#ff6ad8', shape: 'overmind', abilities: ['homing', 'summon', 'volley'], minion: 'runner', shot: '#ff6ad8', flyer: true };
+ZN.BOSSES.mechaKraken  = { name: 'Mecha-Kraken', hpMul: 1.2, speed: 40, r: 42, color: '#3a4a5a', skin: '#8aa0b8', shape: 'kraken', abilities: ['tentacles', 'volley', 'summon'], minion: 'crawler', shot: '#3af0ff' };
+ZN.BOSSES.chromeDragon = { name: 'The Chrome Dragon', hpMul: 1.15, speed: 50, r: 38, color: '#8a96a8', skin: '#d8e0ec', shape: 'worm', abilities: ['dive', 'volley', 'charge'], minion: 'crawler', shot: '#3af0ff' };
+ZN.BOSSES.replicant    = { name: 'The Replicant Queen', hpMul: 0.95, speed: 56, r: 30, color: '#e0e4ec', skin: '#f0d8d8', shape: 'replicant', abilities: ['leap', 'homing', 'frenzy'], minion: 'runner', shot: '#ff3a5a' };
+ZN.BOSSES.colossus     = { name: 'Nanite Colossus', hpMul: 1.25, speed: 36, r: 40, color: '#3e3e46', skin: '#5affc8', shape: 'golem', abilities: ['slam', 'heal', 'summon'], minion: 'crawler' };
+ZN.BOSSES.sentinel     = { name: 'Sentinel Prime', hpMul: 1.1, speed: 46, r: 38, color: '#c8d0dc', skin: '#ff3a3a', shape: 'sentinel', abilities: ['charge', 'shield', 'kegs'], minion: 'brute', shot: '#ff3a3a' };
+ZN.RELICS.overmind     = { name: 'Overmind Core', icon: '🧠', desc: '+15% XP and +10% crit chance', apply: function (s) { s.growth += 0.15; s.crit += 0.1; } };
+ZN.RELICS.mechaKraken  = { name: 'Hydraulic Tentacle', icon: '🦾', desc: '+1 projectile', apply: function (s) { s.amount += 1; } };
+ZN.RELICS.chromeDragon = { name: 'Chrome Scale', icon: '🪞', desc: '+2 armour, +10% max HP', apply: function (s) { s.armor += 2; s.maxHp *= 1.1; } };
+ZN.RELICS.replicant    = { name: "Replicant's Eye", icon: '👁️', desc: '+20% crit damage, +6% crit chance', apply: function (s) { s.critDmg = (s.critDmg || 0) + 0.2; s.crit += 0.06; } };
+ZN.RELICS.colossus     = { name: 'Nanite Vial', icon: '🧪', desc: '+0.8 HP/s regeneration', apply: function (s) { s.regen += 0.8; } };
+ZN.RELICS.sentinel     = { name: 'Sentinel Targeting Chip', icon: '💾', desc: '+15% area, +10% duration', apply: function (s) { s.area *= 1.15; s.duration *= 1.1; } };
+
+// ---------------------------------------------------------------- Future lieutenants
+ZN.MINIBOSSES.enforcer = { name: 'Enforcer Droid', color: '#2a3a5a', skin: '#8a9ab0', accessory: 'enforcer', abilities: ['charge', 'slam'], minion: 'runner' };
+ZN.MINIBOSSES.hacker   = { name: 'The Hacker', color: '#1a1a1a', skin: '#c8b8a8', accessory: 'hacker', abilities: ['homing', 'summon'], minion: 'crawler', shot: '#5aff8a' };
+ZN.MINIBOSSES.medic    = { name: 'Cyborg Medic', color: '#e0e4ec', skin: '#b8c0c8', accessory: 'medic', abilities: ['heal', 'summon'], minion: 'shambler' };
+ZN.MINIBOSSES.riotBot  = { name: 'Riot Bot', color: '#1a2a4a', skin: '#5a6a8a', accessory: 'riotBot', abilities: ['pounce', 'frenzy'], minion: 'runner', speed: 52 };
+ZN.ERAS.modern.minis = ZN.ERAS.modern.minis.filter(function (k) { return ZN.ERAS.future.minis.indexOf(k) < 0; });

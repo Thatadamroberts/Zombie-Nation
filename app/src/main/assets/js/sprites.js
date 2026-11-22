@@ -101,6 +101,34 @@
       '....kwwk........',
       '...kwwwwk.......'
     ],
+    cyber: [
+      '....kkkkk.......',
+      '...kMMMSSk......',
+      '...kMNMSeSk.....',
+      '...kMMMSSSk.....',
+      '...kSSSmmSk.....',
+      '....kkSSkk......',
+      '...kBBBBBkkkkkk.',
+      '..kBMMBBBMMMMMMk',
+      '..kBMNBBBkkkkkk.',
+      '..kBBBBBkSSSSSk.',
+      '..kBBMMBBkkkkk..',
+      '...kDDDDDk......'
+    ],
+    mech: [
+      '................',
+      '....kkkkkk......',
+      '...kMMMMMMk.....',
+      '...kMNNNNMk.....',
+      '...kMMMMMMk.....',
+      '.kkkkMMMMkkkk...',
+      'kMMMMBBBBMMMMk..',
+      'kMNMBBBBBBMNMk..',
+      'kMMkBBMMBBkMMk..',
+      'kMMkBBBBBBkMMk..',
+      '.kkkMMMMMMkkkk..',
+      '...kDDDDDDk.....'
+    ],
     knight: [
       '................',
       '....kkkkkk......',
@@ -159,6 +187,7 @@
   var SHAPE = { shambler: ['shambler', 'walk'], runner: ['runner', 'run'], crawler: ['crawler', 'crawl'], brute: ['brute', 'brute'],
     elite: ['brute', 'brute'], mini: ['brute', 'brute'], spitter: ['spitter', 'walk'], bloater: ['bloater', 'stubby'],
     plague: ['shambler', 'walk'], skeleton: ['skeleton', 'run'], rat: ['crawler', 'crawl'], ghoulKnight: ['knight', 'brute'], archer: ['spitter', 'walk'], plagueBearer: ['bloater', 'stubby'],
+    cyber: ['cyber', 'walk'], synth: ['runner', 'run'], mech: ['mech', 'brute'], plasma: ['spitter', 'walk'],
     trader: ['shambler', 'walk'], berserker: ['runner', 'run'], miner: ['shambler', 'walk'], hardhat: ['brute', 'brute'], morris: ['runner', 'run'], bogbody: ['brute', 'brute'] };
 
   // Hat overlays for the player sprite: row -> pattern ('.' keeps the base pixel)
@@ -259,7 +288,7 @@
   function enemyPalette(def) {
     return { k: '#141414', S: def.skin, B: def.color, D: shade(def.color, 0.65), e: def.elite ? '#ffea00' : '#ff2a2a',
       m: '#4a0a0a', P: def.pants || '#33333f', b: '#7a1414', G: lighten(def.skin, 0.35), g: '#9be03a',
-      w: def.skin, M: def.metal || '#9aa0a8' };
+      w: def.skin, M: def.metal || '#9aa0a8', N: def.glow || '#3af0ff' };
   }
 
   function overlay(rows, hat) {
