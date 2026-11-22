@@ -365,6 +365,7 @@
     }
     if (this.mods.giants && !def.boss) { e.r *= 1.35; e.hp *= 1.5; e.maxHp *= 1.5; e.xpMul = 2; }
     this.enemies.push(e);
+    if (!def.boss && Math.random() < 0.06) ZN.Audio.play(ROBOT[type] ? 'robo' : CLANK[type] ? 'rattle' : SPIRIT[type] ? 'diePoof' : 'groan', 1100);
     return e;
   };
 
@@ -404,7 +405,7 @@
       this.spawnMini('WAVE ' + (this.waveIdx + 1) + ' / ' + this.waves);
       if (newMod) {
         var wm = ZN.WAVE_MODS[newMod], g2 = this;
-        this.timers.push({ at: this.time + 2.8, fn: function () { g2.banner('NEW THREAT', wm.icon + ' ' + wm.name + ': ' + wm.desc); ZN.Audio.play('boss', 300); } });
+        this.timers.push({ at: this.time + 2.8, fn: function () { g2.banner('NEW THREAT', wm.icon + ' ' + wm.name + ': ' + wm.desc); ZN.Audio.play('threat', 300); } });
       }
     } else {
       this.bossPhase = true;
@@ -592,7 +593,7 @@
         if (ev.type === 'convoy') p.hp = Math.min(this.stat.maxHp, p.hp + this.stat.maxHp * 0.3);
       }
       this.banner('✅ EVENT COMPLETE', msg);
-      ZN.Audio.play('levelup'); this.juice(5, [40, 30, 60]);
+      ZN.Audio.play('achieve'); this.juice(5, [40, 30, 60]);
     } else {
       this.banner('❌ EVENT FAILED', msg);
       ZN.Audio.play('lose', 500);
@@ -708,6 +709,7 @@
     var e = this.spawnEnemy('mini', undefined, undefined, 1 + 0.12 * this.waves + Math.min(this.tier, 25) * 0.03, def);
     e.specT = 2.5;
     this.mini = e;
+    ZN.Audio.play('lieutenant', 500);
     this.banner(title || md.name.toUpperCase(), title ? md.name + ' leads the horde!' : 'A horde lieutenant has arrived!');
     this.juice(6, 80);
     return e;
@@ -792,6 +794,7 @@
   G.kill = function (e) {
     if (e.dead) return;
     e.dead = true; this.kills++;
+    ZN.Audio.play(this.deathSound(e), 55);
     if (e.def.regional) { this.regionalKills = this.regionalKills || {}; this.regionalKills[e.type] = true; }
     var def = e.def;
     this.dropGem(e.x, e.y, def.xp * (1 + this.waveIdx * 0.08) * e.xpMul * (this.trait === 'night' ? 1.15 : 1) * (this.trait === 'brutes' && e.role === 'brute' ? 1.6 : 1));
@@ -836,10 +839,22 @@
       if (dx * dx + dy * dy < br * br) this.hurtPlayer(e.dmg * (this.trait === 'bloaters' ? 1.4 : 2));
       if (dx * dx + dy * dy < 250 * 250) this.juice(5, 25);
       if (def.gas && !this.victory) this.hazards.push({ x: e.x, y: e.y, r: 52, life: 3.5, delay: 0.3, tick: 0, dmg: e.dmg * 0.4, color: '#a8b040' });
-      ZN.Audio.play('boom', 120);
+      ZN.Audio.play(ROBOT[e.type] ? 'smallBoom' : 'dieSquelch', 120);
     }
     this.effects.push({ kind: 'splat', x: e.x, y: e.y, r: e.r, t: 0, T: 0.5, color: def.color });
     if (def.boss) { this.slowT = 1.4; this.juice(16, [100, 50, 200]); this.winMission(); }
+  };
+
+  // Which death sound an enemy makes
+  var ROBOT = { cyber: 1, synth: 1, mech: 1, plasma: 1, hoverBomber: 1, drone: 1, nano: 1 }, CLANK = { skeleton: 1, ghoulKnight: 1, hardhat: 1 }, SPIRIT = { wraith: 1, banshee: 1 };
+  G.deathSound = function (e) {
+    var d = e.def;
+    if (d.boss) return 'bossDie';
+    if (d.mini || d.elite || e.role === 'brute') return ROBOT[e.type] ? 'dieRobot' : 'dieBig';
+    if (ROBOT[e.type]) return 'dieRobot';
+    if (CLANK[e.type]) return 'dieClank';
+    if (SPIRIT[e.type] || d.flyer) return 'diePoof';
+    return 'dieSplat';
   };
 
   G.dropGem = function (x, y, v) {
@@ -869,7 +884,7 @@
     ZN.Audio.play('hurt', 150);
     if (p.hp <= 0) {
       if (this.revivals > 0) {
-        this.revivals--; p.hp = this.stat.maxHp * 0.5; p.iframes = 2.5;
+        this.revivals--; p.hp = this.stat.maxHp * 0.5; p.iframes = 2.5; ZN.Audio.play('revive', 0, { important: true });
         if (this.stat.keepCalm) { this.buffs.invincible = 5; this.computeStats(); this.banner('', '☕ Keep Calm and Carry On!'); }
         var g = this;
         this.queryEnemies(p.x, p.y, 220, function (e) { g.damage(e, 40, { kb: 140, silent: true }); });
@@ -892,7 +907,7 @@
   };
 
   G.loseMission = function () {
-    if (this.endT > 0 || this.victory) return;
+    if (this.dying || this.endT > 0 || this.victory) return;
     this.dying = true; this.endT = 1.6;
     this.banner('YOU HAVE FALLEN', this.county.name + ' remains overrun');
     ZN.Audio.play('lose');
@@ -991,9 +1006,11 @@
         if (logic) {
           var wst = ZN.WEAPONS[w.id].stats(w.level), mm = this.masteryMult(w.id);
           if (mm !== 1) { if (wst.dmg) wst.dmg *= mm; if (wst.burstDmg) wst.burstDmg *= mm; }
+          ZN.Audio.weapon(w.id);
           logic(this, w, wst, dt);
         }
       }
+      ZN.Audio.weapon(null);
     }
     ZN.runGameTimers(this);
     if (this.pet && !this.victory) this.updatePet(dt);
@@ -1097,6 +1114,7 @@
         if (e.shootT <= 0 && d < 280 && e.freezeT <= 0 && this.enemyShots.length < 25) {
           e.shootT = rand(3.5, 5);
           this.enemyShots.push({ x: e.x, y: e.y, vx: ux * (e.def.shotColor ? 145 : 125), vy: uy * (e.def.shotColor ? 145 : 125), r: e.def.shotColor ? 4 : 6, dmg: e.def.shotColor ? e.dmg * 0.75 : e.dmg, life: 3, color: e.def.shotColor || '#9be03a' });
+          ZN.Audio.play(e.def.shotColor === '#c05aff' ? 'laser' : e.def.shotColor ? 'bow' : 'spit', 250);
         }
       }
       if (e.def.boss) {
@@ -1499,9 +1517,10 @@
     } else if (k.type === 'coin') {
       this.runCoins += k.v * this.stat.greed; ZN.Audio.play('coin', 60);
     } else if (k.type === 'heal') {
-      p.hp = Math.min(this.stat.maxHp, p.hp + 30);
+      p.hp = Math.min(this.stat.maxHp, p.hp + 30); ZN.Audio.play('heal');
       this.texts.push({ x: p.x, y: p.y - 20, t: 0, v: '+30', color: '#7dff8a' });
     } else if (k.type === 'magnet') {
+      ZN.Audio.play('magnet');
       this.pickups.forEach(function (o) { if (o.type === 'gem') o.mag = true; });
     } else if (k.type === 'token') {
       this.runTokens++; ZN.Audio.play('coin', 60);
@@ -1512,7 +1531,7 @@
       if (this.victory) return;
       var g = this;
       this.modal = true;
-      var rewards = this.openChest();
+      var rewards = this.openChest(); ZN.Audio.play('chest', 0, { important: true });
       this.opts.onChest(rewards, function () { g.modal = false; g.last = performance.now(); });
     }
   };
@@ -1537,7 +1556,7 @@
     this.effects.push({ kind: 'ring', x: p.x, y: p.y, r: 10, maxR: 220, t: 0, T: 0.6, color: b.color });
     this.emit(p.x, p.y - 10, 20, b.color, 200, 0.8, 3.5, 100);
     this.juice(6, [40, 30, 60]);
-    ZN.Audio.play('levelup');
+    ZN.Audio.play('buff');
     if (this.opts.onBuff) this.opts.onBuff(this);
   };
 

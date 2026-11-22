@@ -45,7 +45,7 @@
   }
 
   function updateSoundButtons() {
-    var d = Save.data, t = 'Sound: ' + (d.sound ? 'On' : 'Off'), h = 'Vibration: ' + (d.haptics !== false ? 'On' : 'Off');
+    var d = Save.data, sv = d.sfxVol == null ? 1 : d.sfxVol, t = 'Sound: ' + (!d.sound ? 'Off' : sv <= 0.4 ? 'Low' : sv <= 0.7 ? 'Medium' : 'High'), h = 'Vibration: ' + (d.haptics !== false ? 'On' : 'Off');
     $('btn-sound').textContent = t; $('pause-sound').textContent = t;
     $('btn-haptics').textContent = h; $('pause-haptics').textContent = h;
     $('btn-shake').textContent = 'Shake: ' + (d.shake !== false ? 'On' : 'Off');
@@ -98,7 +98,7 @@
         if (it.id === 'weapon') { d.items[se.weapon] = true; toast(w.icon + ' ' + w.name + ' is yours to keep!'); }
         if (it.id === 'coins') { d.coins += 1500; toast(cur() + ' +1,500 ' + ZN.ERAS[d.era].curName); }
         if (it.id === 'xp') { var lv = Save.addAccountXp(2000); toast('⭐ +2,000 survivor XP' + (lv.length ? ' · Level ' + d.accLevel + '!' : '')); }
-        Save.save(); ZN.Audio.play('coin'); renderEvent();
+        Save.save(); ZN.Audio.play('buy'); renderEvent();
       };
       row.appendChild(b);
       body.appendChild(row);
@@ -152,7 +152,8 @@
     (function next() {
       if (!toastQ.length) { toastBusy = false; return; }
       toastBusy = true;
-      var t = $('toast'); t.innerHTML = toastQ.shift(); t.classList.add('show');
+      var t = $('toast'), msg = toastQ.shift(); t.innerHTML = msg; t.classList.add('show');
+      ZN.Audio.play(/^(🏆|🥉|🥈|🥇|💎|👑|🏅)/.test(msg) ? 'achieve' : 'coin', 300);
       setTimeout(function () { t.classList.remove('show'); setTimeout(next, 400); }, 2600);
     })();
   }
@@ -304,7 +305,7 @@
       b.onclick = function () {
         if (d.coins < cost || maxed) return;
         d.coins -= cost; d.shop[item.id] = rank + 1; Save.save();
-        ZN.Audio.play('coin'); renderShop();
+        ZN.Audio.play('buy'); renderShop();
       };
       row.appendChild(b);
       list.appendChild(row);
@@ -420,7 +421,7 @@
       else { b = el('button', 'btn buy primary', cur() + ' ' + fmt(ch.cost)); b.disabled = d.coins < ch.cost; }
       b.onclick = function () {
         if (sel) return;
-        if (!owned) { if (d.coins < ch.cost) return; d.coins -= ch.cost; d.owned[ch.id] = true; ZN.Audio.play('coin'); }
+        if (!owned) { if (d.coins < ch.cost) return; d.coins -= ch.cost; d.owned[ch.id] = true; ZN.Audio.play('buy'); }
         else ZN.Audio.play('click');
         d.character = ch.id; Save.save(); renderSurvivors();
       };
@@ -468,7 +469,7 @@
       if (buyable) { b = el('button', 'btn buy primary', cur() + ' ' + fmt(pet.cost)); b.disabled = d.coins < pet.cost; }
       else { b = el('button', 'btn buy', sel ? 'Chosen' : have ? 'Select' : '🔒'); b.disabled = !have; }
       b.onclick = function () {
-        if (buyable) { if (d.coins < pet.cost) return; d.coins -= pet.cost; d.pets[id] = true; ZN.Audio.play('coin'); }
+        if (buyable) { if (d.coins < pet.cost) return; d.coins -= pet.cost; d.pets[id] = true; ZN.Audio.play('buy'); }
         else if (!have) return;
         else ZN.Audio.play('click');
         d.pet = id; Save.save(); renderSurvivors();
@@ -928,7 +929,12 @@
     $('btn-pause').addEventListener('pointerdown', function (e) { e.stopPropagation(); });
     $('btn-pause').onclick = pauseGame;
     $('pause-resume').onclick = resumeGame;
-    var toggleSound = function () { Save.data.sound = !Save.data.sound; Save.save(); updateSoundButtons(); };
+    // Sound cycles Off → Low → Medium → High
+    var toggleSound = function () {
+      var d = Save.data, v = d.sfxVol == null ? 1 : d.sfxVol;
+      if (!d.sound) { d.sound = true; d.sfxVol = 0.4; } else if (v <= 0.4) d.sfxVol = 0.7; else if (v <= 0.7) d.sfxVol = 1; else d.sound = false;
+      ZN.Audio.setVolume(d.sfxVol); Save.save(); updateSoundButtons(); ZN.Audio.play('click');
+    };
     $('btn-sound').onclick = toggleSound; $('pause-sound').onclick = toggleSound;
     var toggleHaptics = function () { Save.data.haptics = Save.data.haptics === false; Save.save(); updateSoundButtons(); ZN.haptic(40); };
     $('btn-haptics').onclick = toggleHaptics; $('pause-haptics').onclick = toggleHaptics;

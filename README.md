@@ -74,6 +74,16 @@ A Vampire Survivors-style Android game set across a zombie-overrun United Kingdo
   - **Pet Training** (Survivors): up to 5 levels per companion, +25% power each (damage, lifesteal).
 - **Survivor level** (account XP from every mission) unlocks new weapons and passives, which can then turn up in level-up choices.
 
+## Sound
+
+All sound is generated live in the browser engine (no audio files). It is mixed through a compressor and a small reverb so loud fights don't clip.
+- Most weapons have their own voice: laser zaps, railgun cracks, shotgun blasts, bow twangs, glass smashes, bagpipe drones, pigeon coos and more.
+- Enemies die differently: zombies squelch, skeletons and knights clank, spirits poof, robots fizz out. The horde groans, rattles or chirps as it arrives.
+- Medieval and Modern bosses get a distorted roar; Future bosses get a mechanical one.
+- XP gems chime up a scale as you chain pickups.
+- There are distinct sounds for wave horns, threat alarms, lieutenants, chests, buffs, heals, revives, shop purchases and achievements.
+- The Sound button cycles Off, Low, Medium and High.
+
 ## Controls
 
 Touch and drag anywhere to move (floating joystick). Weapons fire on their own. The Android back button pauses the game or closes menus.

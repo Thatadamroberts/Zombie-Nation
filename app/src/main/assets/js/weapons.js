@@ -96,6 +96,7 @@
 
   function throwBottles(g, s, count, color) {
     var p = g.player, R = s.radius * g.stat.area, life = s.life * g.stat.duration;
+    ZN.Audio.play('throwW', 150);
     for (var i = 0; i < count; i++) {
       var target = g.randomEnemyOnScreen(), tx, ty;
       if (target && Math.abs(target.x - p.x) < 280 && Math.abs(target.y - p.y) < 280) { tx = target.x; ty = target.y; }
@@ -105,7 +106,7 @@
       (function (tx, ty, delay) {
         setTimeoutGame(g, delay, function () {
           g.pools.push({ x: tx, y: ty, r: R, life: life, tick: 0.35, tickT: 0, dmg: s.dmg, burn: s.burn || 0, slow: s.slow, freeze: s.freeze, heal: s.heal, color: color });
-          ZN.Audio.play('boom', 120);
+          ZN.Audio.play('glass', 120);
         });
       })(tx, ty, T);
     }
@@ -191,6 +192,7 @@
 
   function pigeons(g, w, s, dt) {
     if (!ready(g, w, s.cd, dt)) return;
+    ZN.Audio.play('shoot', 400);
     var n = s.amount + g.stat.amount, base = facing(g);
     for (var i = 0; i < n; i++) {
       shoot(g, base + rand(-1.2, 1.2), { speed: 250, r: 7, dmg: s.dmg, pierce: s.pierce, life: 3.2, kind: 'pigeon', kb: 30, homing: true, silent: true });
@@ -248,7 +250,7 @@
           var aa = Math.atan2(tg.y - t.y, tg.x - t.x), v = 520;
           g.projectiles.push({ x: t.x, y: t.y - 10, vx: Math.cos(aa) * v, vy: Math.sin(aa) * v, r: 4, dmg: s.dmg, pierce: 1, life: 0.8, maxLife: 0.8,
             hit: {}, kind: w.id === 'gnome' || w.id === 'gnomeArmy' ? 'bullet' : 'laser', color: w.id === 'gnome' || w.id === 'gnomeArmy' ? '#9be03a' : '#9ad0ff', kb: 15, silent: true });
-          t.recoil = 0.1;
+          t.recoil = 0.1; ZN.Audio.play('shoot', 180);
         } else t.fireT = 0.2;
       }
       if (t.recoil > 0) t.recoil -= dt;
@@ -291,6 +293,7 @@
   // Seasonal: lobbed explosives (pumpkins, eggs)
   function lob(g, s, count, icon, onLand) {
     var p = g.player;
+    ZN.Audio.play('shoot', 200);
     for (var i = 0; i < count; i++) {
       var tg = g.randomEnemyOnScreen(), tx, ty;
       if (tg && Math.abs(tg.x - p.x) < 300 && Math.abs(tg.y - p.y) < 300) { tx = tg.x; ty = tg.y; }
