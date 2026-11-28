@@ -2032,12 +2032,15 @@
       ctx.fillStyle = '#5a4a3a'; ctx.fillRect(-18, -1.5, 22, 3);
       ctx.fillStyle = pr.color || '#cfd6de'; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(2, -5); ctx.lineTo(4, 0); ctx.lineTo(2, 5); ctx.fill();
     } else if (pr.kind === 'laser') {
-      ctx.fillStyle = pr.color || '#3af0ff'; ctx.shadowColor = pr.color || '#3af0ff'; ctx.shadowBlur = 8;
-      ctx.fillRect(-pr.r * 4, -pr.r * 0.45, pr.r * 6, pr.r * 0.9); ctx.fillStyle = '#ffffff'; ctx.fillRect(-pr.r * 3, -pr.r * 0.2, pr.r * 4.5, pr.r * 0.4); ctx.shadowBlur = 0;
+      ctx.fillStyle = pr.color || '#3af0ff';
+      ctx.globalAlpha = 0.3; ctx.fillRect(-pr.r * 4.6, -pr.r * 1.1, pr.r * 7.2, pr.r * 2.2); ctx.globalAlpha = 1;   // cheap glow (no shadowBlur)
+      ctx.fillRect(-pr.r * 4, -pr.r * 0.45, pr.r * 6, pr.r * 0.9); ctx.fillStyle = '#ffffff'; ctx.fillRect(-pr.r * 3, -pr.r * 0.2, pr.r * 4.5, pr.r * 0.4);
     } else if (pr.kind === 'orb') {
-      ctx.fillStyle = pr.color || '#c05aff'; ctx.shadowColor = pr.color || '#c05aff'; ctx.shadowBlur = 14;
-      ctx.beginPath(); ctx.arc(0, 0, pr.r * (1 + Math.sin(this.time * 20) * 0.1), 0, TAU); ctx.fill();
-      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(0, 0, pr.r * 0.45, 0, TAU); ctx.fill(); ctx.shadowBlur = 0;
+      var orr = pr.r * (1 + Math.sin(this.time * 20) * 0.1);
+      ctx.fillStyle = pr.color || '#c05aff';
+      ctx.globalAlpha = 0.25; ctx.beginPath(); ctx.arc(0, 0, orr * 1.9, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.beginPath(); ctx.arc(0, 0, orr, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(0, 0, pr.r * 0.45, 0, TAU); ctx.fill();
     } else if (pr.kind === 'bolt') {
       ctx.fillStyle = '#6b4a2b'; ctx.fillRect(-pr.r * 3, -pr.r * 0.25, pr.r * 5, pr.r * 0.5);
       ctx.fillStyle = pr.color || '#ccc'; ctx.beginPath(); ctx.moveTo(pr.r * 3, 0); ctx.lineTo(pr.r * 1.6, -pr.r * 0.8); ctx.lineTo(pr.r * 1.6, pr.r * 0.8); ctx.fill();
@@ -2079,11 +2082,13 @@
         ctx.globalAlpha = a * 0.7; ctx.fillStyle = f.color || '#ffaa33';
         ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.4 + 0.6 * (1 - a)), 0, TAU); ctx.fill(); break;
       case 'rail':
-        ctx.globalAlpha = a; ctx.lineCap = 'round';
-        ctx.strokeStyle = f.color || '#7affd8'; ctx.lineWidth = f.w * 2 * (0.4 + a * 0.6); ctx.shadowColor = f.color || '#7affd8'; ctx.shadowBlur = 16;
-        ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.lineTo(f.x2, f.y2); ctx.stroke();
-        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = f.w * 0.6; ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.lineTo(f.x2, f.y2); ctx.stroke();
-        ctx.shadowBlur = 0; ctx.lineCap = 'butt'; break;
+        // layered strokes fake the glow: much cheaper than shadowBlur on phone GPUs
+        ctx.lineCap = 'round'; ctx.strokeStyle = f.color || '#7affd8';
+        ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.lineTo(f.x2, f.y2);
+        ctx.globalAlpha = a * 0.25; ctx.lineWidth = f.w * 3.4 * (0.4 + a * 0.6); ctx.stroke();
+        ctx.globalAlpha = a; ctx.lineWidth = f.w * 2 * (0.4 + a * 0.6); ctx.stroke();
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = f.w * 0.6; ctx.stroke();
+        ctx.lineCap = 'butt'; break;
       case 'ring':
         ctx.globalAlpha = a; ctx.strokeStyle = f.color; ctx.lineWidth = 4;
         ctx.beginPath(); ctx.arc(f.x, f.y, f.r + (f.maxR - f.r) * (f.t / f.T), 0, TAU); ctx.stroke(); break;

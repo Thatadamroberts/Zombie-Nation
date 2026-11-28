@@ -803,7 +803,8 @@
         ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(a);
         var gr = ctx.createLinearGradient(R * 0.25, 0, R, 0);
         gr.addColorStop(0, 'rgba(127,212,255,0.9)'); gr.addColorStop(0.5, 'rgba(255,170,90,0.9)'); gr.addColorStop(1, 'rgba(255,250,200,1)');
-        ctx.fillStyle = gr; ctx.shadowColor = '#fff6c0'; ctx.shadowBlur = 12;
+        ctx.fillStyle = 'rgba(255,246,192,0.25)'; ctx.fillRect(R * 0.22, -9, R * 0.86, 18);   // glow
+        ctx.fillStyle = gr;
         ctx.beginPath(); ctx.moveTo(R * 0.25, -4); ctx.lineTo(R * 0.92, -5); ctx.lineTo(R * 1.05, 0); ctx.lineTo(R * 0.92, 5); ctx.lineTo(R * 0.25, 4); ctx.fill();
         ctx.fillStyle = '#ffd700'; ctx.fillRect(R * 0.2, -9, 5, 18);
         ctx.restore();

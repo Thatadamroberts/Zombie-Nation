@@ -319,8 +319,8 @@
       ctx.beginPath(); ctx.arc(r * 0.95, -r * 0.4, r * 0.42, 0, TAU); ctx.fill();
       ctx.beginPath(); ctx.moveTo(r * 0.8, -r * 0.7); ctx.lineTo(r * 0.85, -r * 1.1); ctx.lineTo(r * 1.05, -r * 0.75); ctx.fill();
       ctx.fillRect(r * 1.1, -r * 0.4, r * 0.45, r * 0.25);
-      ctx.shadowColor = '#ff2020'; ctx.shadowBlur = 12; ctx.fillStyle = '#ff3030';
-      ctx.beginPath(); ctx.arc(r * 1.1, -r * 0.5, r * 0.11, 0, TAU); ctx.fill(); ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(255,32,32,0.3)'; ctx.beginPath(); ctx.arc(r * 1.1, -r * 0.5, r * 0.24, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#ff3030'; ctx.beginPath(); ctx.arc(r * 1.1, -r * 0.5, r * 0.11, 0, TAU); ctx.fill();
       ctx.restore();
       if (Math.random() < 0.3) g.emit(e.x - flip * r, e.y, 1, 'rgba(60,60,80,0.6)', 20, 0.6, 4, -20);
     },
@@ -349,7 +349,7 @@
       ctx.fillStyle = '#7a1020'; ctx.beginPath(); ctx.moveTo(e.x - r * 0.5, y + r * 0.4); ctx.lineTo(e.x, y - r * 0.5); ctx.lineTo(e.x + r * 0.5, y + r * 0.4); ctx.fill();
       ctx.fillStyle = e.def.skin; ctx.beginPath(); ctx.arc(e.x, y - r * 0.9, r * 0.32, 0, TAU); ctx.fill();
       ctx.fillStyle = '#0a0a10'; ctx.fillRect(e.x - r * 0.45, y - r * 1.2, r * 0.9, r * 0.1); ctx.fillRect(e.x - r * 0.28, y - r * 1.75, r * 0.56, r * 0.58);
-      ctx.shadowColor = '#5ad1ff'; ctx.shadowBlur = 10; eyes(ctx, e.x, y - r * 0.92, r * 0.13, '#5ad1ff'); ctx.shadowBlur = 0;
+      eyes(ctx, e.x, y - r * 0.92, r * 0.24, 'rgba(90,209,255,0.3)'); eyes(ctx, e.x, y - r * 0.92, r * 0.13, '#5ad1ff');
     },
     knight: function (g, ctx, e) {
       var r = e.r;
@@ -434,7 +434,7 @@
         ctx.beginPath(); ctx.moveTo(e.x + i * r * 0.22 - r * 0.4, y - r * 0.6); ctx.lineTo(e.x + i * r * 0.22 + r * 0.4, y + r * 0.6); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(e.x + i * r * 0.22 + r * 0.4, y - r * 0.6); ctx.lineTo(e.x + i * r * 0.22 - r * 0.4, y + r * 0.6); ctx.stroke();
       }
-      ctx.shadowColor = '#ff6a2a'; ctx.shadowBlur = 10; eyes(ctx, e.x, y - r * 0.85, r * 0.15, '#ff6a2a'); ctx.shadowBlur = 0;
+      eyes(ctx, e.x, y - r * 0.85, r * 0.26, 'rgba(255,106,42,0.3)'); eyes(ctx, e.x, y - r * 0.85, r * 0.15, '#ff6a2a');
     },
     ram: function (g, ctx, e) {
       var r = e.r, flip = Math.cos(e.dir || 0) < 0 ? -1 : 1, run = Math.sin(e.anim * 2) * (e.chargeT > 0 ? 4 : 2);
